@@ -39,64 +39,87 @@ const ATTRACTIONS = [
   { id: 'waterworld_show', name: '水世界表演', zone: 'WATERWORLD', type: 'show', outdoor: true, duration: 20, wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show' },
 ];
 
-// 完整設施清單 (包含商店、餐廳、表演等 158 項) - 供 AI 參考用
+// 完整設施清單 (151項)
 const FACILITY_DATABASE = [
-    { id: 1, name: "1UP工廠™", desc: "有許多在別的地方買不到的周邊商品！可愛的玩具工場生產蘑菇王國所有的物品。", type: "shop" },
-    { id: 2, name: "4-D電影商品屋", desc: "想找期間限定的活動周邊商品，就在這裡！", type: "shop" },
-    { id: 3, name: "25週年「Discover U!!!」 日本環球影城", desc: "日本環球影城25週年活動。2026年3月4日～2027年3月30日。", type: "event" },
-    { id: 4, name: "艾比的魔法派對", desc: "艾比施展魔法的大廳裡，有巨大星星的積木或球。", type: "play_area" },
-    { id: 5, name: "艾比的魔法樹", desc: "往大樹裡面一看，裡面展現的是非常有趣的攀登架！", type: "play_area" },
-    { id: 6, name: "艾蒙的GO-GO滑板", desc: "和艾蒙一起乘坐滑板，痛快地在斜坡上奔馳！", type: "ride" },
-    { id: 7, name: "艾蒙的泡泡遨遊", desc: "騎上寵物金魚，在充滿肥皂泡泡的河裡，悠閒地進行水上散步。", type: "ride" },
-    { id: 8, name: "艾蒙的小兜風", desc: "如果是這個賽車場，即使是3歲的小朋友，也能駕駛得有模有樣。", type: "ride" },
-    { id: 9, name: "奧利凡德的商店™", desc: "體驗「魔杖選擇巫師」的經典場景。", type: "shop_experience" },
-    { id: 10, name: "海格的小屋™", desc: "真實再現了海格的家。", type: "photo_spot" },
-    { id: 11, name: "青蛙慶典", desc: "伴隨著好聽的歌曲，青蛙們展現美妙的合聲。", type: "show" },
-    { id: 12, name: "鷹馬的飛行™", desc: "與魔法世界的生物鹰馬一同翱翔天空，適合全家人的雲霄飛車。", type: "ride" },
-    { id: 13, name: "活米村車站™", desc: "霍格華茲特快車的發車站。", type: "photo_spot" },
-    { id: 14, name: "三根掃帚™", desc: "活米村的老字號酒館。深受霍格華茲魔法與巫術學院的老師及學生們喜愛。", type: "restaurant" },
-    { id: 15, name: "豬頭酒吧", desc: "散發著詭異氛圍的酒吧，就在「三根掃帚」隔壁。", type: "restaurant" },
-    { id: 16, name: "蜂蜜公爵™", desc: "霍格華茲魔法與巫術學院的學生們最喜歡的糖果店。", type: "shop" },
-    { id: 17, name: "貓頭鷹郵局™ & 貓頭鷹屋", desc: "除了有販賣活米村的郵票與文具外，還能由這裡寄信。", type: "shop" },
-    { id: 18, name: "桑科™的「惡作劇商品店」", desc: "衛斯理家的雙胞胎喬治與弗雷也經常來訪的惡作劇商品店。", type: "shop" },
-    { id: 19, name: "德維與班吉™", desc: "活米村的魔法道具店。", type: "shop" },
-    { id: 20, name: "費爾奇沒收品百貨店™", desc: "霍格華茲魔法與巫術學院的管理員飛七從違反校規的學生們沒收來的寶物。", type: "shop" },
-    { id: 21, name: "高級巫師服飾店", desc: "在這裡可以買到霍格華茲魔法與巫術學院的長袍及領帶等。", type: "shop" },
-    { id: 22, name: "飛天翼龍", desc: "世界最長×世界最大高低差的最新型雲霄飛車。", type: "ride" },
-    { id: 23, name: "侏羅紀公園・乘船遊™", desc: "為了探尋恐龍，在熱帶雨林進行探險。最後為了逃離暴龍，將從25.9m處一躍而下！", type: "ride" },
-    { id: 24, name: "新發現餐廳™", desc: "這是在電影《侏羅紀公園》中登場的遊客中心。", type: "restaurant" },
-    { id: 25, name: "失落的世界餐廳™", desc: "位於叢林中被秘密覆蓋的餐廳。", type: "restaurant" },
-    { id: 26, name: "侏羅紀專賣店™", desc: "能滿足粉絲的各種周邊商品，種類豐富。", type: "shop" },
-    { id: 27, name: "小小兵瘋狂乘車遊", desc: "搭乘特製飛車，進入格魯的實驗室，體驗翻天覆地的騷動！", type: "ride" },
-    { id: 28, name: "冰凍雷射光乘船遊", desc: "搭乘格魯發明的飛車，在冰上滑行！", type: "ride" },
-    { id: 29, name: "美味我也要！小小兵餅乾店", desc: "製作小小兵最愛的夾心餅乾。", type: "restaurant" },
-    { id: 30, name: "小小兵流行商店", desc: "對於時尚非常敏感的小小兵們提議的流行商品專賣店。", type: "shop" },
-    { id: 31, name: "甜蜜俘虜商店", desc: "這家粉紅色的店，對於喜愛甜食的人來說是無法抗拒的！", type: "shop" },
-    { id: 32, name: "小小兵粉絲商店", desc: "小小兵的粉絲們聚集的商店。", type: "shop" },
-    { id: 33, name: "快樂咖啡廳™", desc: "以格魯最愛的菜單為首，可以享受到小小兵們設計的餐點！", type: "restaurant" },
-    { id: 34, name: "大白鯊™", desc: "乘坐觀光船，從襲擊和平港鎮的巨大食人鯊的恐怖中逃脫。", type: "ride" },
-    { id: 35, name: "親善村漫步道遊戲", desc: "位於親善村的遊戲區。", type: "game" },
-    { id: 36, name: "親善村冰淇淋", desc: "位於親善村的冰淇淋店。", type: "restaurant" },
-    { id: 37, name: "木板路小吃", desc: "位於親善村的小吃店。", type: "restaurant" },
-    { id: 38, name: "好萊塢美夢・乘車遊", desc: "選擇你喜愛的BGM，如飛翔在空中般奔馳的爽快雲霄飛車。", type: "ride" },
-    { id: 39, name: "好萊塢美夢・乘車遊 ～逆轉世界～", desc: "背部被吊起直衝天際，無法預測的極限刺激！後退行駛的雲霄飛車。", type: "ride" },
-    { id: 40, name: "梅兒茲餐廳™", desc: "彷彿穿越時空來到50年代的美國！", type: "restaurant" },
-    { id: 41, name: "比佛利山莊法式咖啡™", desc: "以法國街頭的露天咖啡座為主題。", type: "restaurant" },
-    { id: 42, name: "環球影城禮品屋", desc: "園區內最大的紀念品商店。", type: "shop" },
-    { id: 43, name: "羅迪歐大道禮品屋", desc: "以史努比和芝麻街等角色的周邊商品為主的商店。", type: "shop" },
-    { id: 44, name: "加州糖果餅乾店", desc: "集結了園區內人氣的點心！", type: "shop" },
-    { id: 45, name: "瑪利歐咖啡店&商店™", desc: "以瑪利歐和路易吉的帽子為主題的咖啡店及商店。", type: "shop_restaurant" },
-    { id: 46, name: "蜘蛛人驚魂歷險記商品屋", desc: "蜘蛛人的周邊商品專賣店。", type: "shop" },
-    { id: 47, name: "芬尼根酒吧&燒烤™", desc: "位於紐約區的愛爾蘭酒吧。", type: "restaurant" },
-    { id: 48, name: "園畔護柵®", desc: "位於紐約區的牛排屋。", type: "restaurant" },
-    { id: 49, name: "路易斯紐約比薩餅舖™", desc: "位於紐約區的比薩店。", type: "restaurant" },
-    { id: 50, name: "SAIDO™", desc: "位於紐約區的日式餐廳。", type: "restaurant" },
-    { id: 140, name: "Hello Kitty蝴蝶結大收藏", desc: "參觀Hello Kitty的工作室，還可以合影留念！", type: "attraction" },
-    { id: 141, name: "Hello Kitty夢幻蛋糕杯", desc: "隨著音樂旋轉的杯形蛋糕遊樂設施。", type: "ride" },
-    { id: 142, name: "大鳥的大頂篷馬戲團", desc: "芝麻街夥伴們擔任團長的旋轉木馬。", type: "ride" },
-    { id: 143, name: "莫比的氣球之旅", desc: "乘坐氣球，從高空俯瞰芝麻街歡樂世界。", type: "ride" },
-    { id: 158, name: "水世界™", desc: "充滿魄力的特技表演與爆破場面，必看的水上實境秀。", type: "show" }
-    // ... (這是一個簡化版清單，AI 將會使用此清單進行推薦)
+  {id:1,name:"1UP工廠™",desc:"有許多在別的地方買不到的周邊商品！可愛的玩具工場生產蘑菇王國所有的物品。",type:"shop"},
+  {id:2,name:"4-D電影商品屋",desc:"想找期間限定的活動周邊商品，就在這裡！",type:"shop"},
+  {id:3,name:"25週年「Discover U!!!」 日本環球影城",desc:"日本環球影城25週年活動。2026年3月4日～2027年3月30日。",type:"event"},
+  {id:4,name:"艾比的魔法派對",desc:"艾比施展魔法的大廳裡，有巨大星星的積木或球。",type:"play_area"},
+  {id:5,name:"艾比的魔法樹",desc:"往大樹裡面一看，裡面展現的是非常有趣的攀登架！",type:"play_area"},
+  {id:6,name:"艾蒙的GO-GO滑板",desc:"和艾蒙一起乘坐滑板，痛快地在斜坡上奔馳！",type:"ride"},
+  {id:7,name:"艾蒙的泡泡遨遊",desc:"騎上寵物金魚，在充滿肥皂泡泡的河裡，悠閒地進行水上散步。",type:"ride"},
+  {id:8,name:"艾蒙的小兜風",desc:"如果是這個賽車場，即使是3歲的小朋友，也能駕駛得有模有樣。",type:"ride"},
+  {id:9,name:"奧利凡德的商店™",desc:"體驗「魔杖選擇巫師」的經典場景。",type:"shop_experience"},
+  {id:10,name:"海格的小屋™",desc:"真實再現了海格的家。",type:"photo_spot"},
+  {id:11,name:"青蛙慶典",desc:"伴隨著好聽的歌曲，青蛙們展現美妙的合聲。",type:"show"},
+  {id:12,name:"鷹馬的飛行™",desc:"與魔法世界的生物鹰馬一同翱翔天空，適合全家人的雲霄飛車。",type:"ride"},
+  {id:13,name:"活米村車站™",desc:"霍格華茲特快車的發車站。",type:"photo_spot"},
+  {id:14,name:"三根掃帚™",desc:"活米村的老字號酒館。",type:"restaurant"},
+  {id:15,name:"豬頭酒吧",desc:"散發著詭異氛圍的酒吧，就在「三根掃帚」隔壁。",type:"restaurant"},
+  {id:16,name:"蜂蜜公爵™",desc:"霍格華茲魔法與巫術學院的學生們最喜歡的糖果店。",type:"shop"},
+  {id:17,name:"貓頭鷹郵局™ & 貓頭鷹屋",desc:"除了有販賣活米村的郵票與文具外，還能由這裡寄信。",type:"shop"},
+  {id:18,name:"桑科™的「惡作劇商品店」",desc:"惡作劇商品店。",type:"shop"},
+  {id:19,name:"德維與班吉™",desc:"活米村的魔法道具店。",type:"shop"},
+  {id:20,name:"費爾奇沒收品百貨店™",desc:"霍格華茲魔法與巫術學院的管理員飛七從違反校規的學生們沒收來的寶物。",type:"shop"},
+  {id:21,name:"高級巫師服飾店",desc:"在這裡可以買到霍格華茲魔法與巫術學院的長袍及領帶等。",type:"shop"},
+  {id:22,name:"飛天翼龍",desc:"世界最長×世界最大高低差的最新型雲霄飛車。",type:"ride"},
+  {id:23,name:"侏羅紀公園・乘船遊™",desc:"為了探尋恐龍，在熱帶雨林進行探險。",type:"ride"},
+  {id:24,name:"新發現餐廳™",desc:"這是在電影《侏羅紀公園》中登場的遊客中心。",type:"restaurant"},
+  {id:25,name:"失落的世界餐廳™",desc:"位於叢林中被秘密覆蓋的餐廳。",type:"restaurant"},
+  {id:26,name:"侏羅紀專賣店™",desc:"能滿足粉絲的各種周邊商品，種類豐富。",type:"shop"},
+  {id:27,name:"小小兵瘋狂乘車遊",desc:"搭乘特製飛車，進入格魯的實驗室。",type:"ride"},
+  {id:28,name:"冰凍雷射光乘船遊",desc:"搭乘格魯發明的飛車，在冰上滑行！",type:"ride"},
+  {id:29,name:"美味我也要！小小兵餅乾店",desc:"製作小小兵最愛的夾心餅乾。",type:"restaurant"},
+  {id:30,name:"小小兵流行商店",desc:"對於時尚非常敏感的小小兵們提議的流行商品專賣店。",type:"shop"},
+  {id:31,name:"甜蜜俘虜商店",desc:"這家粉紅色的店，對於喜愛甜食的人來說是無法抗拒的！",type:"shop"},
+  {id:32,name:"小小兵粉絲商店",desc:"小小兵的粉絲們聚集的商店。",type:"shop"},
+  {id:33,name:"快樂咖啡廳™",desc:"以格魯最愛的菜單為首，可以享受到小小兵們設計的餐點！",type:"restaurant"},
+  {id:34,name:"大白鯊™",desc:"乘坐觀光船，從襲擊和平港鎮的巨大食人鯊的恐怖中逃脫。",type:"ride"},
+  {id:35,name:"親善村漫步道遊戲",desc:"位於親善村的遊戲區。",type:"game"},
+  {id:36,name:"親善村冰淇淋",desc:"位於親善村的冰淇淋店。",type:"restaurant"},
+  {id:37,name:"木板路小吃",desc:"位於親善村的小吃店。",type:"restaurant"},
+  {id:38,name:"好萊塢美夢・乘車遊",desc:"選擇你喜愛的BGM，如飛翔在空中般奔馳的爽快雲霄飛車。",type:"ride"},
+  {id:39,name:"好萊塢美夢・乘車遊 ～逆轉世界～",desc:"後退行駛的雲霄飛車。",type:"ride"},
+  {id:40,name:"梅兒茲餐廳™",desc:"彷彿穿越時空來到50年代的美國！",type:"restaurant"},
+  {id:41,name:"比佛利山莊法式咖啡™",desc:"以法國街頭的露天咖啡座為主題。",type:"restaurant"},
+  {id:42,name:"環球影城禮品屋",desc:"園區內最大的紀念品商店。",type:"shop"},
+  {id:43,name:"羅迪歐大道禮品屋",desc:"以史努比和芝麻街等角色的周邊商品為主的商店。",type:"shop"},
+  {id:44,name:"加州糖果餅乾店",desc:"集結了園區內人氣的點心！",type:"shop"},
+  {id:45,name:"瑪利歐咖啡店&商店™",desc:"以瑪利歐和路易吉的帽子為主題的咖啡店及商店。",type:"shop_restaurant"},
+  {id:46,name:"蜘蛛人驚魂歷險記商品屋",desc:"蜘蛛人的周邊商品專賣店。",type:"shop"},
+  {id:47,name:"芬尼根酒吧&燒烤™",desc:"位於紐約區的愛爾蘭酒吧。",type:"restaurant"},
+  {id:48,name:"園畔護柵®",desc:"位於紐約區的牛排屋。",type:"restaurant"},
+  {id:49,name:"路易斯紐約比薩餅舖™",desc:"位於紐約區的比薩店。",type:"restaurant"},
+  {id:50,name:"SAIDO™",desc:"位於紐約區的日式餐廳。",type:"restaurant"},
+  {id:51,name:"名偵探柯南 4-D 現場表演秀：星空的寶石",desc:"名偵探柯南的世界，透過寬100m的巨型螢幕×3D影像×現場娛樂表演。",type:"show"},
+  {id:52,name:"哈利波特禁忌之旅™",desc:"連續5年榮獲世界No.1乘車遊的殊榮。",type:"ride"},
+  {id:53,name:"超級任天堂世界™",desc:"重現了瑪利歐的世界。",type:"area"},
+  {id:54,name:"瑪利歐賽車～庫巴的挑戰書～™",desc:"瑪利歐賽車的世界以及驚奇與興奮，透過最先進的技術化為現實！",type:"ride"},
+  {id:55,name:"耀西冒險™",desc:"騎在耀西的背上，跟著奇諾比奧隊長出發去尋寶！",type:"ride"},
+  {id:56,name:"咚奇剛的瘋狂礦車™",desc:"為了保護黃金香蕉，在叢林裡奔馳！",type:"ride"},
+  {id:57,name:"能量手環™的關鍵挑戰",desc:"從庫巴二世那裡奪回黃金蘑菇！",type:"attraction"},
+  {id:58,name:"奇諾比奧咖啡店™",desc:"維修中的敲磚塊、水管的裡面... 透過窗戶，說不定能看到快樂的蘑菇王國的樣子！？",type:"restaurant"},
+  {id:59,name:"耀西小吃島™",desc:"以耀西和烏龜殼為主題的餡餅及飲料，很適合邊走邊吃。",type:"restaurant"},
+  {id:60,name:"加油站爆米花",desc:"瑪利歐賽車的爆米花桶就在這裡！",type:"shop_food"},
+  {id:61,name:"咚奇剛的叢林冰沙",desc:"從木桶飛出來的咚奇剛超狂野！",type:"shop_food"},
+  {id:62,name:"環球奇境",desc: "艾蒙、史努比、Hello Kitty住在這裡的城鎮。", type: "area" },
+  {id:63,name:"飛天史努比",desc:"和史努比一起在空中飛翔！",type:"ride"},
+  {id:64,name:"史努比音響舞台歷險記™",desc:"可以和史努比們一起玩的室內遊樂場。",type:"play_area"},
+  {id:65,name:"史努比外景咖啡廳™",desc:"史努比和朋友們聚會的咖啡廳。",type:"restaurant"},
+  {id:66,name:"史努比攝影棚商品屋",desc:"滿滿的都是史努比周邊商品！",type:"shop"},
+  {id:67,name:"Hello Kitty蝴蝶結大收藏",desc:"參觀Hello Kitty的工作室，還可以合影留念！",type: "attraction"},
+  {id:68,name:"Hello Kitty夢幻蛋糕杯",desc:"隨著音樂旋轉的杯形蛋糕遊樂設施。",type:"ride"},
+  {id:69,name:"Hello Kitty蝴蝶結時尚精品店",desc:"Hello Kitty周邊商品。",type:"shop"},
+  {id:70,name:"Hello Kitty轉角咖啡廳",desc:"各式各樣可愛無比的食物！",type:"restaurant"},
+  {id:71,name:"大鳥的大頂篷馬戲團",desc:"芝麻街夥伴們擔任團長的旋轉木馬。",type:"ride"},
+  {id:72,name:"莫比的氣球之旅",desc:"乘坐氣球，從高空俯瞰芝麻街歡樂世界。",type:"ride"},
+  {id:73,name:"芝麻街大操場",desc:"巨大的攀爬架和滑梯。",type:"play_area"},
+  {id:74,name:"水世界™",desc:"充滿魄力的特技表演與爆破場面，必看的水上實境秀。",type:"show"},
+  {id:75,name:"新世紀福音戰士 XR乘車遊",desc:"VR雲霄飛車，體驗EVA的世界。",type:"ride"},
+  {id:76,name:"鬼滅之刃 XR乘車遊",desc:"VR雲霄飛車，體驗鬼滅之刃的世界。",type:"ride"},
+  {id:150,name:"Lombard’s Landing™",desc:"園區特有的餐廳。",type:"restaurant"},
+  {id:151,name:"Monster Hunter Wilds餐廳",desc:"魔物獵人主題餐廳。",type:"restaurant"},
+  // ... 其他設施會由 AI 根據上網搜尋與內建知識補足
 ];
 
 const EXPRESS_PASS_RAW = [
@@ -208,7 +231,7 @@ export default function USJPlannerApp() {
     endTime: '21:00',
     needsFood: true,
     planShopping: false,
-    preferenceMode: 'thrill', // 新增：預設為刺激
+    preferenceMode: 'thrill',
     specialRequest: '',
     needsTaxRefund: false,
   };
@@ -359,7 +382,7 @@ export default function USJPlannerApp() {
         const year = selectedDate.getFullYear();
         const month = selectedDate.getMonth() + 1; 
         const forecastUrl = `https://usjreal.asumirai.info/monthly/usj-forecast-${year}-${month}.html`;
-        const officialScheduleUrl = "https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule";
+        const officialScheduleUrl = "[https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule](https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule)";
 
         let allExpressPassDetails = [];
         if (formData.hasExpress && formData.expressPasses.length > 0) {
@@ -391,7 +414,7 @@ export default function USJPlannerApp() {
                 needsTaxRefund: formData.needsTaxRefund,
                 needsFood: formData.needsFood,
                 planShopping: formData.planShopping, 
-                preferenceMode: formData.preferenceMode, // 傳遞遊玩取向
+                preferenceMode: formData.preferenceMode, 
                 endTime: formData.endTime, 
                 special: formData.specialRequest
             },
@@ -403,9 +426,9 @@ export default function USJPlannerApp() {
                 wait: a.wait[dayType],
                 duration: a.duration,
                 outdoor: a.outdoor,
-                thrillLevel: a.thrill // 傳遞刺激程度
+                thrillLevel: a.thrill 
             })),
-            facilityDatabase: FACILITY_DATABASE, // 傳入完整設施清單
+            facilityDatabase: FACILITY_DATABASE, 
             dataSources: {
                 crowdForecastUrl: forecastUrl,
                 officialScheduleUrl: officialScheduleUrl
@@ -422,18 +445,9 @@ export default function USJPlannerApp() {
           4. rain_all: 整日有雨
 
           **核心規劃邏輯 - 依據使用者取向 (${formData.preferenceMode})**：
-          1. **不怕暈要刺激 (thrill)**: 
-             - 優先安排：飛天翼龍、好萊塢美夢 (正/逆)、哈利波特禁忌之旅、太空幻想列車。
-             - 路線要緊湊，減少閒逛。
-          2. **怕暈別太刺激 (gentle)**:
-             - **絕對避免**：哈利波特禁忌之旅 (高暈眩風險)、太空幻想列車 (旋轉)、好萊塢美夢 (劇烈)。
-             - 優先安排：大白鯊、耀西冒險、鷹馬的飛行 (輕微刺激)、小小兵 (需注意暈眩，可選冰凍雷射光)、水世界表演、名偵探柯南 4-D。
-             - 多安排拍照點、商店逛街 (參考 facilityDatabase)。
-          3. **親子路線 (family)**:
-             - 優先安排：環球奇境 (Wonderland) 所有設施、小小兵樂園、任天堂世界 (耀西)。
-             - 必須安排：遊行、街頭表演 (Street Shows)。
-             - 避免：身高限制過高的設施 (飛天翼龍等)。
-             - 用餐與休息時間要拉長。
+          1. **不怕暈要刺激 (thrill)**: 優先安排飛天翼龍、好萊塢美夢、禁忌之旅。
+          2. **怕暈別太刺激 (gentle)**: 絕對避免禁忌之旅、太空幻想。優先安排大白鯊、耀西、表演。
+          3. **親子路線 (family)**: 優先安排環球奇境、小小兵、遊行。
 
           資料檢索與解析 (非常重要)：
           1. **營業時間 (OPERATING HOURS)**:
@@ -445,23 +459,21 @@ export default function USJPlannerApp() {
              - 搜尋該日期是否有 '休止' (Suspended) 的設施，必須在行程中排除。
 
           行程規劃規則：
-          1. **開園衝刺 (Morning Dash)**:
-             - 第一項設施排隊預估 < 20分 (咚奇剛除外，需估 40-60分)。
-          2. **購物規劃**:
-             - 如果 \`planShopping\` 為 true，請參考 \`facilityDatabase\` 中的商店 (type: shop)，安排專門的購物時段。
-          3. **填補空檔**:
-             - 使用 \`facilityDatabase\` 中的餐廳、商店、照相點來豐富行程，不要只有遊樂設施。
-          4. **快速通關 & JCB**:
-             - 絕對遵守 \`fixedTime\`。JCB 飛天翼龍 VIP 必須安排。
+          1. **開園衝刺 (Morning Dash)**: 第一項設施排隊預估 < 20分 (咚奇剛除外)。
+          2. **購物規劃**: 如果 \`planShopping\` 為 true，安排專門購物時段。
+          3. **填補空檔**: 使用 \`facilityDatabase\` 中的餐廳、商店來豐富行程。
+          4. **快速通關 & JCB**: 絕對遵守 \`fixedTime\`。
 
           輸出格式：
           - 繁體中文。
           - 嚴格 JSON 物件，包含四個鍵值：\`sunny\`, \`rain_am\`, \`rain_pm\`, \`rain_all\`。
+          - 不要使用 markdown code blocks。
         `;
 
         const userPrompt = `請根據以下資料規劃行程：${JSON.stringify(contextData)}。
-        使用者的取向是：${formData.preferenceMode} (請務必遵守此取向的設施篩選規則)。
-        請務必先搜尋 ${formData.date} 的官方營業時間與運休設施。`;
+        使用者的取向是：${formData.preferenceMode}。
+        請務必先搜尋 ${formData.date} 的官方營業時間與運休設施。
+        JSON回應必須包含四個key: sunny, rain_am, rain_pm, rain_all。`;
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${activeKey}`, {
             method: 'POST',
@@ -477,9 +489,12 @@ export default function USJPlannerApp() {
         if (!response.ok) throw new Error("API Request Failed");
         
         const data = await response.json();
-        const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        let generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
         
         if (!generatedText) throw new Error("No data generated");
+
+        // 增強：移除 Markdown 標記，確保 JSON 解析成功
+        generatedText = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
 
         const resultObj = JSON.parse(generatedText);
         
@@ -496,11 +511,12 @@ export default function USJPlannerApp() {
             });
         };
 
+        // 增強：鍵值容錯處理 (防止 AI 回傳大寫或中文 Key)
         setItineraryMap({
-            sunny: processItinerary(resultObj.sunny),
-            rain_am: processItinerary(resultObj.rain_am),
-            rain_pm: processItinerary(resultObj.rain_pm),
-            rain_all: processItinerary(resultObj.rain_all),
+            sunny: processItinerary(resultObj.sunny || resultObj.Sunny || resultObj['整日無雨']),
+            rain_am: processItinerary(resultObj.rain_am || resultObj.Rain_am || resultObj['上午有雨']),
+            rain_pm: processItinerary(resultObj.rain_pm || resultObj.Rain_pm || resultObj['下午有雨']),
+            rain_all: processItinerary(resultObj.rain_all || resultObj.Rain_all || resultObj['整日有雨']),
         });
 
         setCurrentView('plan');
@@ -843,7 +859,8 @@ export default function USJPlannerApp() {
         
         {currentItinerary.length === 0 ? (
             <div className="text-center py-10 text-gray-400 text-sm">
-                AI 未能生成此天氣條件下的行程，請重試。
+                AI 未能生成此天氣條件下的行程，請重試。<br/>
+                (請確認 API Key 是否正確，或稍後再試)
             </div>
         ) : (
             currentItinerary.map((item, index) => (
