@@ -463,7 +463,7 @@ export default function USJPlannerApp() {
         使用者的取向是：${formData.preferenceMode} (請務必遵守此取向的設施篩選規則)。
         請務必先搜尋 ${formData.date} 的官方營業時間與運休設施。`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${activeKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
