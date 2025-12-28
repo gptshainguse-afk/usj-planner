@@ -344,15 +344,19 @@ export default function USJPlannerApp() {
           
           TASK: Create a strict JSON schedule that minimizes waiting and walking distance.
 
-          MANDATORY DATA RETRIEVAL INSTRUCTIONS:
-          1. **OPERATING HOURS CHECK (CRITICAL)**:
-             - Use "Google Search" to find the specific OPEN and CLOSE times for ${formData.date} from ${forecastUrl} or the official site.
-             - Search Query: "USJ operating hours ${formData.date} site:usjreal.asumirai.info"
-             - **CONSTRAINT**: The itinerary MUST end by the closing time found in search results. If the found closing time (e.g., 19:00) is earlier than the user's input (${formData.endTime}), YOU MUST USE THE OFFICIAL CLOSING TIME.
-             - Look for "Suspended" (休止) attractions and EXCLUDE them from the plan.
+          MANDATORY DATA RETRIEVAL & PARSING FROM SEARCH RESULTS (CRITICAL):
+          1. **OPERATING HOURS (開園時間)**:
+             - Use "Google Search" to access ${forecastUrl} and find the specific row for ${formData.date}.
+             - Look for the '開園時間' column which has a format like "9:00 〜 19:00".
+             - **EXTRACT CLOSING TIME**: The second part (e.g., 19:00) is the STRICT PARK CLOSING TIME.
+             - **CONSTRAINT**: The itinerary MUST end by this Closing Time. If user's input ${formData.endTime} is later than the found closing time (e.g., 19:00), YOU MUST USE THE FOUND CLOSING TIME (19:00).
           
-          2. **SHOW SCHEDULES**:
-             - Use "Google Search" to find show times for ${formData.date}.
+          2. **OPENING TIME (予想開園時間)**:
+             - Look for the '予想開園時間' (Expected Opening Time) column (e.g., "8時15分").
+             - **START TIME**: Use this "Expected Opening Time" as the start of the itinerary. If not explicitly found, assume the park opens 30-60 mins before the "Official Open Time" (e.g., if official is 9:00, assume 8:30 start).
+          
+          3. **SUSPENSIONS**:
+             - Look for "Suspended" (休止) text in the forecast table for that date. Exclude these attractions.
           
           CRITICAL RULES FOR MULTIPLE EXPRESS PASSES:
           1. Treat ALL 'fixedTime' entries as absolute constraints. 
@@ -376,12 +380,15 @@ export default function USJPlannerApp() {
               "zoneId": "HOLLYWOOD" | "NINTENDO" etc.,
               "wait": number,
               "duration": number,
-              "description": "Short note (e.g., 'Using Pass 1', 'Suspension check passed', 'Park Closes at 19:00')"
+              "description": "Short note (e.g., 'Using Pass 1', 'Park Closes at 19:00 based on forecast')"
             }
           ]
         `;
 
-        const userPrompt = `Plan an itinerary based on this data: ${JSON.stringify(contextData)}. Please verify suspension status for the date and STRICTLY follow the park closing time found online.`;
+        const userPrompt = `Plan an itinerary based on this data: ${JSON.stringify(contextData)}. 
+        IMPORTANT: Search specifically for the '開園時間' text (e.g. '9:00 〜 19:00') for ${formData.date} on the forecast site. 
+        If it says 19:00 close, DO NOT schedule anything past 19:00. 
+        Also look for '予想開園時間' (e.g. 8:15) and start the plan then.`;
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`, {
             method: 'POST',
