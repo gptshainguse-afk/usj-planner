@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X } from 'lucide-react';
+import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
@@ -140,7 +140,7 @@ export default function USJPlannerApp() {
     date: new Date().toISOString().split('T')[0],
     duration: '1',
     hasExpress: false,
-    expressPasses: [{ id: Date.now(), name: '', times: {} }], // 改為陣列結構
+    expressPasses: [{ id: Date.now(), name: '', times: {} }], 
     nintendoEntryTime: 'morning',
     hasJCB: false,
     jcbTime: '', 
@@ -153,7 +153,6 @@ export default function USJPlannerApp() {
   const [formData, setFormData] = useState(() => {
     try {
       const saved = localStorage.getItem('usj_form_data');
-      // Migration logic: 如果舊資料格式存在，轉換為新格式
       if (saved) {
         const parsed = JSON.parse(saved);
         if (!parsed.expressPasses) {
@@ -201,7 +200,6 @@ export default function USJPlannerApp() {
 
   const handleInputChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
   
-  // 新增快通券
   const addExpressPass = () => {
       setFormData(prev => ({
           ...prev,
@@ -212,7 +210,6 @@ export default function USJPlannerApp() {
       }));
   };
 
-  // 移除快通券
   const removeExpressPass = (id) => {
       setFormData(prev => ({
           ...prev,
@@ -220,17 +217,15 @@ export default function USJPlannerApp() {
       }));
   };
 
-  // 更新特定快通券的名稱
   const updateExpressPassName = (id, newName) => {
       setFormData(prev => ({
           ...prev,
           expressPasses: prev.expressPasses.map(p => 
-              p.id === id ? { ...p, name: newName, times: {} } : p // 重置時間當票種改變
+              p.id === id ? { ...p, name: newName, times: {} } : p
           )
       }));
   };
 
-  // 更新特定快通券的時間
   const updateExpressPassTime = (passId, attractionId, time) => {
       setFormData(prev => ({
           ...prev,
@@ -284,9 +279,16 @@ export default function USJPlannerApp() {
     setErrorMsg('');
 
     try {
-        const dayOfWeek = new Date(formData.date).getDay();
+        const selectedDate = new Date(formData.date);
+        const dayOfWeek = selectedDate.getDay();
         let dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'weekday';
         if (formData.date.endsWith('12-25') || formData.date.endsWith('12-31')) dayType = 'holiday';
+
+        // 動態生成預測網站 URL
+        const year = selectedDate.getFullYear();
+        const month = selectedDate.getMonth() + 1; // 1-12
+        const forecastUrl = `https://usjreal.asumirai.info/monthly/usj-forecast-${year}-${month}.html`;
+        const officialScheduleUrl = "https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule";
 
         // 整合多張快通券資料
         let allExpressPassDetails = [];
@@ -294,7 +296,7 @@ export default function USJPlannerApp() {
             allExpressPassDetails = formData.expressPasses.map((pass, index) => {
                 if (!pass.name) return null;
                 return {
-                    passId: index + 1, // 標記是第幾張券
+                    passId: index + 1, 
                     name: pass.name,
                     content: getExpressPassContent(pass.name).map(item => ({
                         id: item.id,
@@ -304,7 +306,7 @@ export default function USJPlannerApp() {
                         choiceGroup: item.choice 
                     }))
                 };
-            }).filter(Boolean); // 過濾掉未選擇的空項目
+            }).filter(Boolean); 
         }
 
         const contextData = {
@@ -319,7 +321,7 @@ export default function USJPlannerApp() {
                 jcbReservationTime: formData.jcbTime, 
                 needsTaxRefund: formData.needsTaxRefund,
                 needsFood: formData.needsFood,
-                endTime: formData.endTime,
+                endTime: formData.endTime, // This is the user preference, but AI needs to check official closing time
                 special: formData.specialRequest
             },
             attractions: ATTRACTIONS.map(a => ({
@@ -330,25 +332,39 @@ export default function USJPlannerApp() {
                 wait: a.wait[dayType],
                 duration: a.duration,
                 outdoor: a.outdoor
-            }))
+            })),
+            dataSources: {
+                crowdForecastUrl: forecastUrl,
+                officialScheduleUrl: officialScheduleUrl
+            }
         };
 
         const systemPrompt = `
           You are an expert USJ (Universal Studios Japan) itinerary planner.
           
+          TASK: Create a strict JSON schedule that minimizes waiting and walking distance.
+
+          MANDATORY DATA RETRIEVAL INSTRUCTIONS:
+          1. **OPERATING HOURS CHECK (CRITICAL)**:
+             - Use "Google Search" to find the specific OPEN and CLOSE times for ${formData.date} from ${forecastUrl} or the official site.
+             - Search Query: "USJ operating hours ${formData.date} site:usjreal.asumirai.info"
+             - **CONSTRAINT**: The itinerary MUST end by the closing time found in search results. If the found closing time (e.g., 19:00) is earlier than the user's input (${formData.endTime}), YOU MUST USE THE OFFICIAL CLOSING TIME.
+             - Look for "Suspended" (休止) attractions and EXCLUDE them from the plan.
+          
+          2. **SHOW SCHEDULES**:
+             - Use "Google Search" to find show times for ${formData.date}.
+          
           CRITICAL RULES FOR MULTIPLE EXPRESS PASSES:
-          1. The user may have multiple Express Passes (Pass 1, Pass 2, etc.).
-          2. Treat ALL 'fixedTime' entries across ALL passes as absolute constraints. 
-             - Example: If Pass 1 has Mario Kart at 10:00 and Pass 2 has Mario Kart at 14:00, schedule BOTH rides at those specific times.
-          3. For non-timed items in ANY pass, schedule them to use Express (wait=0) at optimal times.
-          4. If an item has a 'choiceGroup', choose ONE option per occurrence.
+          1. Treat ALL 'fixedTime' entries as absolute constraints. 
+          2. For non-timed items in ANY pass, schedule them to use Express (wait=0) at optimal times.
+          3. If an item has a 'choiceGroup', choose ONE option per occurrence.
           
           CRITICAL RULES FOR JCB:
           1. IF 'preferences.hasJCB' is true AND 'jcbReservationTime' is set:
              - Schedule "JCB Lounge & Flying Dinosaur VIP" at 'jcbReservationTime'.
-             - This replaces ONE standard/express ride of Flying Dinosaur. If the user REALLY wants to ride it again using a pass, they can, but prioritize the VIP slot.
+             - This replaces ONE standard/express ride of Flying Dinosaur.
           
-          Output strict JSON array.
+          Output strict JSON array only. No markdown.
           
           Output JSON Schema:
           [
@@ -360,12 +376,12 @@ export default function USJPlannerApp() {
               "zoneId": "HOLLYWOOD" | "NINTENDO" etc.,
               "wait": number,
               "duration": number,
-              "description": "Short note (e.g., 'Using Pass 1')"
+              "description": "Short note (e.g., 'Using Pass 1', 'Suspension check passed', 'Park Closes at 19:00')"
             }
           ]
         `;
 
-        const userPrompt = `Plan an itinerary based on this data: ${JSON.stringify(contextData)}`;
+        const userPrompt = `Plan an itinerary based on this data: ${JSON.stringify(contextData)}. Please verify suspension status for the date and STRICTLY follow the park closing time found online.`;
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`, {
             method: 'POST',
@@ -373,6 +389,7 @@ export default function USJPlannerApp() {
             body: JSON.stringify({
                 contents: [{ parts: [{ text: userPrompt }] }],
                 systemInstruction: { parts: [{ text: systemPrompt }] },
+                tools: [{ google_search: {} }], // 啟用搜尋工具
                 generationConfig: { responseMimeType: "application/json" }
             })
         });
@@ -435,6 +452,10 @@ export default function USJPlannerApp() {
              onChange={(e) => setUserApiKey(e.target.value)}
              className="w-full p-2 border rounded-lg text-sm bg-blue-50 focus:ring-2 focus:ring-blue-500 outline-none"
            />
+           <div className="mt-2 flex items-start gap-2 text-[10px] text-blue-700 bg-blue-50 p-2 rounded">
+             <Globe size={12} className="mt-0.5"/>
+             <p>已啟用 Google Search Grounding：AI 將自動搜尋當日官方時間表與人數預測網站。</p>
+           </div>
         </div>
 
         {/* Date */}
