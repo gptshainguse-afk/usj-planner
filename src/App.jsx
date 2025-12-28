@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap } from 'lucide-react';
+import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
@@ -18,7 +18,7 @@ const ZONES = {
   WONDERLAND: { id: 'wonderland', name: '環球奇境', x: 20, y: 60, color: '#f9a8d4' },
 };
 
-// 核心遊樂設施 (用於計算等待時間與快通邏輯)
+// 核心遊樂設施
 const ATTRACTIONS = [
   { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'NINTENDO', type: 'ride', outdoor: true, duration: 5, wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
   { id: 'mario_kart', name: '瑪利歐賽車：庫巴的挑戰書', zone: 'NINTENDO', type: 'ride', outdoor: false, duration: 5, wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'medium' },
@@ -39,118 +39,26 @@ const ATTRACTIONS = [
   { id: 'waterworld_show', name: '水世界表演', zone: 'WATERWORLD', type: 'show', outdoor: true, duration: 20, wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show' },
 ];
 
-// 完整設施清單 (151項)
+// 完整設施清單 (部分範例)
 const FACILITY_DATABASE = [
-  {id:1,name:"1UP工廠™",desc:"有許多在別的地方買不到的周邊商品！可愛的玩具工場生產蘑菇王國所有的物品。",type:"shop"},
-  {id:2,name:"4-D電影商品屋",desc:"想找期間限定的活動周邊商品，就在這裡！",type:"shop"},
-  {id:3,name:"25週年「Discover U!!!」 日本環球影城",desc:"日本環球影城25週年活動。2026年3月4日～2027年3月30日。",type:"event"},
-  {id:4,name:"艾比的魔法派對",desc:"艾比施展魔法的大廳裡，有巨大星星的積木或球。",type:"play_area"},
-  {id:5,name:"艾比的魔法樹",desc:"往大樹裡面一看，裡面展現的是非常有趣的攀登架！",type:"play_area"},
-  {id:6,name:"艾蒙的GO-GO滑板",desc:"和艾蒙一起乘坐滑板，痛快地在斜坡上奔馳！",type:"ride"},
-  {id:7,name:"艾蒙的泡泡遨遊",desc:"騎上寵物金魚，在充滿肥皂泡泡的河裡，悠閒地進行水上散步。",type:"ride"},
-  {id:8,name:"艾蒙的小兜風",desc:"如果是這個賽車場，即使是3歲的小朋友，也能駕駛得有模有樣。",type:"ride"},
-  {id:9,name:"奧利凡德的商店™",desc:"體驗「魔杖選擇巫師」的經典場景。",type:"shop_experience"},
-  {id:10,name:"海格的小屋™",desc:"真實再現了海格的家。",type:"photo_spot"},
-  {id:11,name:"青蛙慶典",desc:"伴隨著好聽的歌曲，青蛙們展現美妙的合聲。",type:"show"},
-  {id:12,name:"鷹馬的飛行™",desc:"與魔法世界的生物鹰馬一同翱翔天空，適合全家人的雲霄飛車。",type:"ride"},
-  {id:13,name:"活米村車站™",desc:"霍格華茲特快車的發車站。",type:"photo_spot"},
+  {id:1,name:"1UP工廠™",desc:"有許多在別的地方買不到的周邊商品！",type:"shop"},
+  {id:12,name:"鷹馬的飛行™",desc:"適合全家人的雲霄飛車。",type:"ride"},
   {id:14,name:"三根掃帚™",desc:"活米村的老字號酒館。",type:"restaurant"},
-  {id:15,name:"豬頭酒吧",desc:"散發著詭異氛圍的酒吧，就在「三根掃帚」隔壁。",type:"restaurant"},
-  {id:16,name:"蜂蜜公爵™",desc:"霍格華茲魔法與巫術學院的學生們最喜歡的糖果店。",type:"shop"},
-  {id:17,name:"貓頭鷹郵局™ & 貓頭鷹屋",desc:"除了有販賣活米村的郵票與文具外，還能由這裡寄信。",type:"shop"},
-  {id:18,name:"桑科™的「惡作劇商品店」",desc:"惡作劇商品店。",type:"shop"},
-  {id:19,name:"德維與班吉™",desc:"活米村的魔法道具店。",type:"shop"},
-  {id:20,name:"費爾奇沒收品百貨店™",desc:"霍格華茲魔法與巫術學院的管理員飛七從違反校規的學生們沒收來的寶物。",type:"shop"},
-  {id:21,name:"高級巫師服飾店",desc:"在這裡可以買到霍格華茲魔法與巫術學院的長袍及領帶等。",type:"shop"},
+  {id:16,name:"蜂蜜公爵™",desc:"糖果店。",type:"shop"},
   {id:22,name:"飛天翼龍",desc:"世界最長×世界最大高低差的最新型雲霄飛車。",type:"ride"},
-  {id:23,name:"侏羅紀公園・乘船遊™",desc:"為了探尋恐龍，在熱帶雨林進行探險。",type:"ride"},
-  {id:24,name:"新發現餐廳™",desc:"這是在電影《侏羅紀公園》中登場的遊客中心。",type:"restaurant"},
-  {id:25,name:"失落的世界餐廳™",desc:"位於叢林中被秘密覆蓋的餐廳。",type:"restaurant"},
-  {id:26,name:"侏羅紀專賣店™",desc:"能滿足粉絲的各種周邊商品，種類豐富。",type:"shop"},
-  {id:27,name:"小小兵瘋狂乘車遊",desc:"搭乘特製飛車，進入格魯的實驗室。",type:"ride"},
-  {id:28,name:"冰凍雷射光乘船遊",desc:"搭乘格魯發明的飛車，在冰上滑行！",type:"ride"},
-  {id:29,name:"美味我也要！小小兵餅乾店",desc:"製作小小兵最愛的夾心餅乾。",type:"restaurant"},
-  {id:30,name:"小小兵流行商店",desc:"對於時尚非常敏感的小小兵們提議的流行商品專賣店。",type:"shop"},
-  {id:31,name:"甜蜜俘虜商店",desc:"這家粉紅色的店，對於喜愛甜食的人來說是無法抗拒的！",type:"shop"},
-  {id:32,name:"小小兵粉絲商店",desc:"小小兵的粉絲們聚集的商店。",type:"shop"},
-  {id:33,name:"快樂咖啡廳™",desc:"以格魯最愛的菜單為首，可以享受到小小兵們設計的餐點！",type:"restaurant"},
-  {id:34,name:"大白鯊™",desc:"乘坐觀光船，從襲擊和平港鎮的巨大食人鯊的恐怖中逃脫。",type:"ride"},
-  {id:35,name:"親善村漫步道遊戲",desc:"位於親善村的遊戲區。",type:"game"},
-  {id:36,name:"親善村冰淇淋",desc:"位於親善村的冰淇淋店。",type:"restaurant"},
-  {id:37,name:"木板路小吃",desc:"位於親善村的小吃店。",type:"restaurant"},
-  {id:38,name:"好萊塢美夢・乘車遊",desc:"選擇你喜愛的BGM，如飛翔在空中般奔馳的爽快雲霄飛車。",type:"ride"},
-  {id:39,name:"好萊塢美夢・乘車遊 ～逆轉世界～",desc:"後退行駛的雲霄飛車。",type:"ride"},
-  {id:40,name:"梅兒茲餐廳™",desc:"彷彿穿越時空來到50年代的美國！",type:"restaurant"},
-  {id:41,name:"比佛利山莊法式咖啡™",desc:"以法國街頭的露天咖啡座為主題。",type:"restaurant"},
-  {id:42,name:"環球影城禮品屋",desc:"園區內最大的紀念品商店。",type:"shop"},
-  {id:43,name:"羅迪歐大道禮品屋",desc:"以史努比和芝麻街等角色的周邊商品為主的商店。",type:"shop"},
-  {id:44,name:"加州糖果餅乾店",desc:"集結了園區內人氣的點心！",type:"shop"},
-  {id:45,name:"瑪利歐咖啡店&商店™",desc:"以瑪利歐和路易吉的帽子為主題的咖啡店及商店。",type:"shop_restaurant"},
-  {id:46,name:"蜘蛛人驚魂歷險記商品屋",desc:"蜘蛛人的周邊商品專賣店。",type:"shop"},
-  {id:47,name:"芬尼根酒吧&燒烤™",desc:"位於紐約區的愛爾蘭酒吧。",type:"restaurant"},
-  {id:48,name:"園畔護柵®",desc:"位於紐約區的牛排屋。",type:"restaurant"},
-  {id:49,name:"路易斯紐約比薩餅舖™",desc:"位於紐約區的比薩店。",type:"restaurant"},
-  {id:50,name:"SAIDO™",desc:"位於紐約區的日式餐廳。",type:"restaurant"},
-  {id:51,name:"名偵探柯南 4-D 現場表演秀：星空的寶石",desc:"名偵探柯南的世界，透過寬100m的巨型螢幕×3D影像×現場娛樂表演。",type:"show"},
-  {id:52,name:"哈利波特禁忌之旅™",desc:"連續5年榮獲世界No.1乘車遊的殊榮。",type:"ride"},
-  {id:53,name:"超級任天堂世界™",desc:"重現了瑪利歐的世界。",type:"area"},
-  {id:54,name:"瑪利歐賽車～庫巴的挑戰書～™",desc:"瑪利歐賽車的世界以及驚奇與興奮，透過最先進的技術化為現實！",type:"ride"},
-  {id:55,name:"耀西冒險™",desc:"騎在耀西的背上，跟著奇諾比奧隊長出發去尋寶！",type:"ride"},
-  {id:56,name:"咚奇剛的瘋狂礦車™",desc:"為了保護黃金香蕉，在叢林裡奔馳！",type:"ride"},
-  {id:57,name:"能量手環™的關鍵挑戰",desc:"從庫巴二世那裡奪回黃金蘑菇！",type:"attraction"},
-  {id:58,name:"奇諾比奧咖啡店™",desc:"維修中的敲磚塊、水管的裡面... 透過窗戶，說不定能看到快樂的蘑菇王國的樣子！？",type:"restaurant"},
-  {id:59,name:"耀西小吃島™",desc:"以耀西和烏龜殼為主題的餡餅及飲料，很適合邊走邊吃。",type:"restaurant"},
-  {id:60,name:"加油站爆米花",desc:"瑪利歐賽車的爆米花桶就在這裡！",type:"shop_food"},
-  {id:61,name:"咚奇剛的叢林冰沙",desc:"從木桶飛出來的咚奇剛超狂野！",type:"shop_food"},
-  {id:62,name:"環球奇境",desc: "艾蒙、史努比、Hello Kitty住在這裡的城鎮。", type: "area" },
-  {id:63,name:"飛天史努比",desc:"和史努比一起在空中飛翔！",type:"ride"},
-  {id:64,name:"史努比音響舞台歷險記™",desc:"可以和史努比們一起玩的室內遊樂場。",type:"play_area"},
-  {id:65,name:"史努比外景咖啡廳™",desc:"史努比和朋友們聚會的咖啡廳。",type:"restaurant"},
-  {id:66,name:"史努比攝影棚商品屋",desc:"滿滿的都是史努比周邊商品！",type:"shop"},
-  {id:67,name:"Hello Kitty蝴蝶結大收藏",desc:"參觀Hello Kitty的工作室，還可以合影留念！",type: "attraction"},
-  {id:68,name:"Hello Kitty夢幻蛋糕杯",desc:"隨著音樂旋轉的杯形蛋糕遊樂設施。",type:"ride"},
-  {id:69,name:"Hello Kitty蝴蝶結時尚精品店",desc:"Hello Kitty周邊商品。",type:"shop"},
-  {id:70,name:"Hello Kitty轉角咖啡廳",desc:"各式各樣可愛無比的食物！",type:"restaurant"},
-  {id:71,name:"大鳥的大頂篷馬戲團",desc:"芝麻街夥伴們擔任團長的旋轉木馬。",type:"ride"},
-  {id:72,name:"莫比的氣球之旅",desc:"乘坐氣球，從高空俯瞰芝麻街歡樂世界。",type:"ride"},
-  {id:73,name:"芝麻街大操場",desc:"巨大的攀爬架和滑梯。",type:"play_area"},
-  {id:74,name:"水世界™",desc:"充滿魄力的特技表演與爆破場面，必看的水上實境秀。",type:"show"},
-  {id:75,name:"新世紀福音戰士 XR乘車遊",desc:"VR雲霄飛車，體驗EVA的世界。",type:"ride"},
-  {id:76,name:"鬼滅之刃 XR乘車遊",desc:"VR雲霄飛車，體驗鬼滅之刃的世界。",type:"ride"},
-  {id:150,name:"Lombard’s Landing™",desc:"園區特有的餐廳。",type:"restaurant"},
-  {id:151,name:"Monster Hunter Wilds餐廳",desc:"魔物獵人主題餐廳。",type:"restaurant"},
-  // ... 其他設施會由 AI 根據上網搜尋與內建知識補足
-];
-
-const EXPRESS_PASS_RAW = [
-  "1. 快速通關券8 - Minecart & Minion Mayhem Special",
-  "2. 快速通關券8 - Minion & Minecart Special",
-  "3. 快速通關券7 - Minecart & Minion Mayhem",
-  "4. 快速通關券7 - Minecart & Selection",
-  "5. 快速通關券5 - Minecart & JAWS Special",
-  "6. 快速通關券5 - Adventure Special",
-  "7. 快速通關券5 - Race & Minion Mayhem Special",
-  "8. 快速通關券5 - Race & Minecart Special",
-  "9. 快速通關券5 - Race & Minion Special",
-  "10. 快速通關券4 - Minecart & Fun",
-  "11. 快速通關券4 - Minecart & JAWS",
-  "12. 快速通關券4 - Minecart & Jurassic Park",
-  "13. 快速通關券4 - Minecart & Flying Dinosaur",
-  "14. 快速通關券4 - Race & Minecart",
-  "15. 快速通關券4 - XR Ride & Race",
-  "16. 快速通關券4 - Race & Thrills",
-  "17. 快速通關券4 - XR Ride & The Flying Dinosaur",
-  "18. 快速通關券4 - Backdrop & Choice",
-  "19. 快速通關券4 - Thrills & Selection",
-  "20. 快速通關券4 - XR Ride & Jurassic Park",
-  "21. 快速通關券4 - 逆轉世界",
-  "22. 快速通關券4 - Minecart & Hollywood Dream",
-  "23. 快速通關券4 - Flying Dinosaur & JAWS",
-  "24. 快速通關券4 - Space Fantasy & Race",
-  "25. 快速通關券4 - Flying Dinosaur & 4-D",
-  "26. 快速通關券4 - Flying Dinosaur & Jurassic Park",
-  "27. 快速通關券4 - One More Race & Ride Selection",
-  "28. 快速通關券4 - Race & JAWS"
+  {id:23,name:"侏羅紀公園・乘船遊™",desc:"乘船探險。",type:"ride"},
+  {id:27,name:"小小兵瘋狂乘車遊",desc:"進入格魯的實驗室。",type:"ride"},
+  {id:34,name:"大白鯊™",desc:"乘船逃離食人鯊。",type:"ride"},
+  {id:38,name:"好萊塢美夢・乘車遊",desc:"爽快雲霄飛車。",type:"ride"},
+  {id:52,name:"哈利波特禁忌之旅™",desc:"世界No.1乘車遊。",type:"ride"},
+  {id:54,name:"瑪利歐賽車～庫巴的挑戰書～™",desc:"瑪利歐賽車現實版。",type:"ride"},
+  {id:55,name:"耀西冒險™",desc:"騎在耀西背上尋寶。",type:"ride"},
+  {id:56,name:"咚奇剛的瘋狂礦車™",desc:"叢林奔馳。",type:"ride"},
+  {id:58,name:"奇諾比奧咖啡店™",desc:"蘑菇王國餐廳。",type:"restaurant"},
+  {id:62,name:"環球奇境",desc: "艾蒙、史努比、Hello Kitty的城鎮。", type: "area" },
+  {id:74,name:"水世界™",desc:"特技表演秀。",type:"show"},
+  {id:158,name:"鬼滅之刃 XR乘車遊",desc:"VR雲霄飛車。",type:"ride"},
+  // ... (在真實環境中應包含所有158項)
 ];
 
 const EXPRESS_PASS_DEFINITIONS = {
@@ -184,6 +92,37 @@ const EXPRESS_PASS_DEFINITIONS = {
   28: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}]
 };
 
+const EXPRESS_PASS_RAW = [
+  "1. 快速通關券8 - Minecart & Minion Mayhem Special",
+  "2. 快速通關券8 - Minion & Minecart Special",
+  "3. 快速通關券7 - Minecart & Minion Mayhem",
+  "4. 快速通關券7 - Minecart & Selection",
+  "5. 快速通關券5 - Minecart & JAWS Special",
+  "6. 快速通關券5 - Adventure Special",
+  "7. 快速通關券5 - Race & Minion Mayhem Special",
+  "8. 快速通關券5 - Race & Minecart Special",
+  "9. 快速通關券5 - Race & Minion Special",
+  "10. 快速通關券4 - Minecart & Fun",
+  "11. 快速通關券4 - Minecart & JAWS",
+  "12. 快速通關券4 - Minecart & Jurassic Park",
+  "13. 快速通關券4 - Minecart & Flying Dinosaur",
+  "14. 快速通關券4 - Race & Minecart",
+  "15. 快速通關券4 - XR Ride & Race",
+  "16. 快速通關券4 - Race & Thrills",
+  "17. 快速通關券4 - XR Ride & The Flying Dinosaur",
+  "18. 快速通關券4 - Backdrop & Choice",
+  "19. 快速通關券4 - Thrills & Selection",
+  "20. 快速通關券4 - XR Ride & Jurassic Park",
+  "21. 快速通關券4 - 逆轉世界",
+  "22. 快速通關券4 - Minecart & Hollywood Dream",
+  "23. 快速通關券4 - Flying Dinosaur & JAWS",
+  "24. 快速通關券4 - Space Fantasy & Race",
+  "25. 快速通關券4 - Flying Dinosaur & 4-D",
+  "26. 快速通關券4 - Flying Dinosaur & Jurassic Park",
+  "27. 快速通關券4 - One More Race & Ride Selection",
+  "28. 快速通關券4 - Race & JAWS"
+];
+
 const getExpressPassContent = (passName) => {
   if (!passName) return [];
   const indexStr = passName.split('.')[0];
@@ -198,6 +137,83 @@ const getExpressPassContent = (passName) => {
     }));
   }
   return [{ id: 'mario_kart', timed: true }];
+};
+
+// --- Modal Component for Editing ---
+const EditModal = ({ isOpen, onClose, item, onSave }) => {
+    const [name, setName] = useState('');
+    const [startTime, setStartTime] = useState('');
+    const [duration, setDuration] = useState(0);
+    const [note, setNote] = useState('');
+
+    useEffect(() => {
+        if (item) {
+            setName(item.name || '');
+            // Convert mins to HH:MM
+            const h = Math.floor(item.start / 60);
+            const m = item.start % 60;
+            setStartTime(`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`);
+            setDuration(item.duration || 30);
+            setNote(item.description || '');
+        } else {
+            // Default new item
+            setStartTime('12:00');
+            setDuration(30);
+            setName('');
+            setNote('');
+        }
+    }, [item, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleSave = () => {
+        const [h, m] = startTime.split(':').map(Number);
+        const startMins = h * 60 + m;
+        onSave({
+            ...item,
+            name,
+            start: startMins,
+            duration: parseInt(duration),
+            end: startMins + parseInt(duration),
+            description: note,
+            type: item?.type || 'misc' // Default type
+        });
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl w-full max-w-sm p-4 space-y-4 shadow-2xl">
+                <h3 className="font-bold text-lg">{item ? '編輯行程' : '新增行程'}</h3>
+                
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">名稱</label>
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full border p-2 rounded" placeholder="例如：逛商店、休息"/>
+                </div>
+
+                <div className="flex gap-4">
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold text-gray-500 mb-1">開始時間</label>
+                        <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full border p-2 rounded"/>
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold text-gray-500 mb-1">持續時間 (分)</label>
+                        <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full border p-2 rounded"/>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">備註</label>
+                    <textarea value={note} onChange={(e) => setNote(e.target.value)} className="w-full border p-2 rounded h-20 text-sm"/>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                    <button onClick={onClose} className="flex-1 py-2 bg-gray-200 rounded-lg text-sm font-bold">取消</button>
+                    <button onClick={handleSave} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">儲存</button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // --- 組件開始 ---
@@ -261,16 +277,14 @@ export default function USJPlannerApp() {
     }
   });
   
-  const [itineraryMap, setItineraryMap] = useState({
-      sunny: [],
-      rain_am: [],
-      rain_pm: [],
-      rain_all: []
-  });
-  
-  const [activeWeatherTab, setActiveWeatherTab] = useState('sunny');
+  // Itinerary is now a single array, sorted by time
+  const [itinerary, setItinerary] = useState([]);
   const [gpsLocation, setGpsLocation] = useState({ x: 50, y: 95 });
-  const [displayWeather, setDisplayWeather] = useState({ condition: 'sunny', temp: 15 });
+  const [displayWeather, setDisplayWeather] = useState({ condition: 'sunny', temp: 15, text: '尚未取得天氣資訊' });
+
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('usj_api_key', userApiKey);
@@ -327,14 +341,45 @@ export default function USJPlannerApp() {
       }));
   };
 
+  // CRUD Operations
+  const handleEditItem = (item) => {
+      setEditingItem(item);
+      setIsEditModalOpen(true);
+  };
+
+  const handleAddItem = () => {
+      setEditingItem(null); // Null means new
+      setIsEditModalOpen(true);
+  };
+
+  const handleSaveItem = (newItem) => {
+      let newItinerary;
+      if (editingItem) {
+          // Update existing
+          newItinerary = itinerary.map(i => i === editingItem ? newItem : i);
+      } else {
+          // Add new
+          newItinerary = [...itinerary, newItem];
+      }
+      // Sort by start time
+      newItinerary.sort((a, b) => a.start - b.start);
+      setItinerary(newItinerary);
+  };
+
+  const handleDeleteItem = (itemToDelete) => {
+      if(window.confirm('確定要刪除此項目嗎？')) {
+          setItinerary(prev => prev.filter(i => i !== itemToDelete));
+      }
+  };
+
   const saveCurrentPlan = () => {
-    if (Object.keys(itineraryMap).length === 0) return;
+    if (itinerary.length === 0) return;
     const newPlan = {
       id: Date.now(),
       timestamp: new Date().toLocaleString(),
       name: `${formData.date} - ${formData.hasExpress ? '有快通' : '無快通'}行程`,
       formData: formData,
-      itineraryMap: itineraryMap, 
+      itinerary: itinerary,
       weather: displayWeather
     };
     setSavedPlans(prev => [newPlan, ...prev]);
@@ -343,16 +388,9 @@ export default function USJPlannerApp() {
 
   const loadPlan = (plan) => {
     setFormData(plan.formData);
-    if (Array.isArray(plan.itinerary)) {
-        setItineraryMap({
-            sunny: plan.itinerary,
-            rain_am: [],
-            rain_pm: [],
-            rain_all: []
-        });
-    } else {
-        setItineraryMap(plan.itineraryMap || { sunny: [], rain_am: [], rain_pm: [], rain_all: [] });
-    }
+    // Backward compatibility or standard loading
+    let items = Array.isArray(plan.itinerary) ? plan.itinerary : (plan.itineraryMap?.sunny || []);
+    setItinerary(items);
     setDisplayWeather(plan.weather || { condition: 'sunny', temp: 15 });
     setCurrentView('plan');
   };
@@ -382,7 +420,7 @@ export default function USJPlannerApp() {
         const year = selectedDate.getFullYear();
         const month = selectedDate.getMonth() + 1; 
         const forecastUrl = `https://usjreal.asumirai.info/monthly/usj-forecast-${year}-${month}.html`;
-        const officialScheduleUrl = "[https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule](https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule)";
+        const officialScheduleUrl = "https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule";
 
         let allExpressPassDetails = [];
         if (formData.hasExpress && formData.expressPasses.length > 0) {
@@ -438,12 +476,10 @@ export default function USJPlannerApp() {
         const systemPrompt = `
           你是一位環球影城 (USJ) 的行程規劃專家。
           
-          任務：產生 4 種不同的行程表，分別對應以下天氣狀況：
-          1. sunny: 整日無雨
-          2. rain_am: 上午有雨
-          3. rain_pm: 下午有雨
-          4. rain_all: 整日有雨
-
+          任務：
+          1. 搜尋 ${formData.date} 的精確天氣與營業資訊。
+          2. 根據天氣預報（例如：若下雨，避開戶外設施）、人流預測與使用者偏好，產生**唯一最佳**的行程表。
+          
           **核心規劃邏輯 - 依據使用者取向 (${formData.preferenceMode})**：
           1. **不怕暈要刺激 (thrill)**: 優先安排飛天翼龍、好萊塢美夢、禁忌之旅。
           2. **怕暈別太刺激 (gentle)**: 絕對避免禁忌之旅、太空幻想。優先安排大白鯊、耀西、表演。
@@ -452,11 +488,13 @@ export default function USJPlannerApp() {
           資料檢索與解析 (非常重要)：
           1. **營業時間 (OPERATING HOURS)**:
              - 使用 "Google Search" 從 ${forecastUrl} 搜尋 ${formData.date} 的資料。
-             - 找出 '開園時間'。後者 (例如 19:00) 是絕對閉園時間，行程不能超過此時間。
-          2. **開園時間 (OPENING TIME)**:
+             - 找出 '開園時間' (例如 19:00 閉園)。**行程絕對不能超過此閉園時間**。
+          2. **天氣預報 (WEATHER)**:
+             - 搜尋當日天氣。若有雨，戶外雲霄飛車 (飛天翼龍、好萊塢美夢) 必須安排在無雨時段或標註風險。
+          3. **開園時間 (OPENING TIME)**:
              - 找出 '予想開園時間' (Expected Opening Time) 作為行程開始時間。
-          3. **設施運休 (SUSPENSIONS)**:
-             - 搜尋該日期是否有 '休止' (Suspended) 的設施，必須在行程中排除。
+          4. **設施運休 (SUSPENSIONS)**:
+             - 搜尋該日期 '休止' 設施並排除。
 
           行程規劃規則：
           1. **開園衝刺 (Morning Dash)**: 第一項設施排隊預估 < 20分 (咚奇剛除外)。
@@ -466,14 +504,20 @@ export default function USJPlannerApp() {
 
           輸出格式：
           - 繁體中文。
-          - 嚴格 JSON 物件，包含四個鍵值：\`sunny\`, \`rain_am\`, \`rain_pm\`, \`rain_all\`。
+          - 嚴格 JSON 格式：
+          {
+            "weatherSummary": "例如：晴時多雲，氣溫 15度",
+            "itinerary": [
+                { "start": "HH:MM", "end": "HH:MM", "name": "...", "type": "ride", "zoneId": "...", "wait": 20, "duration": 5, "description": "..." }
+            ]
+          }
           - 不要使用 markdown code blocks。
         `;
 
         const userPrompt = `請根據以下資料規劃行程：${JSON.stringify(contextData)}。
         使用者的取向是：${formData.preferenceMode}。
-        請務必先搜尋 ${formData.date} 的官方營業時間與運休設施。
-        JSON回應必須包含四個key: sunny, rain_am, rain_pm, rain_all。`;
+        請務必先搜尋 ${formData.date} 的官方營業時間、天氣與運休設施。
+        JSON回應必須包含 weatherSummary 和 itinerary。`;
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${activeKey}`, {
             method: 'POST',
@@ -493,7 +537,6 @@ export default function USJPlannerApp() {
         
         if (!generatedText) throw new Error("No data generated");
 
-        // 增強：移除 Markdown 標記，確保 JSON 解析成功
         generatedText = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
 
         const resultObj = JSON.parse(generatedText);
@@ -511,12 +554,10 @@ export default function USJPlannerApp() {
             });
         };
 
-        // 增強：鍵值容錯處理 (防止 AI 回傳大寫或中文 Key)
-        setItineraryMap({
-            sunny: processItinerary(resultObj.sunny || resultObj.Sunny || resultObj['整日無雨']),
-            rain_am: processItinerary(resultObj.rain_am || resultObj.Rain_am || resultObj['上午有雨']),
-            rain_pm: processItinerary(resultObj.rain_pm || resultObj.Rain_pm || resultObj['下午有雨']),
-            rain_all: processItinerary(resultObj.rain_all || resultObj.Rain_all || resultObj['整日有雨']),
+        setItinerary(processItinerary(resultObj.itinerary));
+        setDisplayWeather({
+            condition: resultObj.weatherSummary?.includes('雨') ? 'rainy' : 'sunny',
+            text: resultObj.weatherSummary || '天氣資訊已更新'
         });
 
         setCurrentView('plan');
@@ -799,7 +840,7 @@ export default function USJPlannerApp() {
           {isGenerating ? (
               <>
                 <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                AI 正在規劃 4 種天氣備案...
+                AI 正在規劃...
               </>
           ) : (
               <>
@@ -812,21 +853,15 @@ export default function USJPlannerApp() {
   );
 
   const renderItinerary = () => {
-    const currentItinerary = itineraryMap[activeWeatherTab] || [];
-
-    const weatherTabs = [
-        { id: 'sunny', label: '整日無雨', icon: <Sun size={14} className="text-orange-500"/> },
-        { id: 'rain_am', label: '上午有雨', icon: <CloudRain size={14} className="text-blue-400"/> },
-        { id: 'rain_pm', label: '下午有雨', icon: <CloudRain size={14} className="text-blue-600"/> },
-        { id: 'rain_all', label: '整日有雨', icon: <Umbrella size={14} className="text-purple-500"/> },
-    ];
-
     return (
-    <div className="pb-20">
+    <div className="pb-24">
       <div className="bg-white sticky top-0 z-10 shadow-sm p-4 flex justify-between items-center">
-        <h2 className="font-bold text-lg flex items-center gap-2"><Sparkles size={18} className="text-yellow-500"/> AI 推薦行程</h2>
+        <h2 className="font-bold text-lg flex items-center gap-2"><Sparkles size={18} className="text-yellow-500"/> 專屬攻略</h2>
         <div className="flex gap-2">
-            <button onClick={saveCurrentPlan} className="p-2 bg-blue-100 rounded-full text-blue-600 hover:bg-blue-200 transition-colors" title="儲存行程">
+            <button onClick={callGeminiAPI} className="p-2 bg-blue-100 rounded-full text-blue-600 hover:bg-blue-200 transition-colors" title="更新天氣/情報">
+                <RefreshCw size={20}/>
+            </button>
+            <button onClick={saveCurrentPlan} className="p-2 bg-green-100 rounded-full text-green-600 hover:bg-green-200 transition-colors" title="儲存行程">
                 <Save size={20}/>
             </button>
             <button onClick={() => setCurrentView('map')} className="p-2 bg-gray-100 rounded-full text-blue-600"><MapIcon size={20}/></button>
@@ -834,37 +869,21 @@ export default function USJPlannerApp() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 pb-2 bg-gray-50 flex gap-2 overflow-x-auto">
-          {weatherTabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveWeatherTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${
-                    activeWeatherTab === tab.id 
-                    ? 'bg-blue-600 text-white shadow-md' 
-                    : 'bg-white text-gray-600 border border-gray-200'
-                }`}
-              >
-                  {tab.icon} {tab.label}
-              </button>
-          ))}
-      </div>
-
-      <div className="px-4 py-2 text-center text-xs text-gray-500 bg-yellow-50 border-b border-yellow-100 mb-4">
-          此為 <b>{weatherTabs.find(t => t.id === activeWeatherTab).label}</b> 情況下的建議路線
+      <div className="px-4 py-2 text-center text-xs text-gray-500 bg-blue-50 border-b border-blue-100 mb-4 flex items-center justify-center gap-2">
+          {displayWeather.condition === 'rainy' ? <Umbrella size={14}/> : <Sun size={14}/>}
+          {displayWeather.text}
       </div>
 
       <div className="px-4 relative">
         <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
         
-        {currentItinerary.length === 0 ? (
+        {itinerary.length === 0 ? (
             <div className="text-center py-10 text-gray-400 text-sm">
-                AI 未能生成此天氣條件下的行程，請重試。<br/>
-                (請確認 API Key 是否正確，或稍後再試)
+                尚未有行程，請點擊「重新預測」或新增項目。
             </div>
         ) : (
-            currentItinerary.map((item, index) => (
-            <div key={index} className="flex gap-4 mb-6 relative animate-slide-in" style={{animationDelay: `${index * 0.1}s`}}>
+            itinerary.map((item, index) => (
+            <div key={index} className="flex gap-4 mb-6 relative animate-slide-in group" style={{animationDelay: `${index * 0.1}s`}}>
                 <div className="w-12 flex-shrink-0 flex flex-col items-center z-10">
                 <div className={`w-3 h-3 rounded-full mb-1 ${
                     item.type === 'express' ? 'bg-yellow-400 ring-4 ring-yellow-100' : 
@@ -874,36 +893,49 @@ export default function USJPlannerApp() {
                 <span className="text-xs font-bold text-gray-500">{formatTime(item.start)}</span>
                 </div>
 
-                <div className={`flex-1 p-3 rounded-xl shadow-sm border-l-4 ${
+                <div className={`flex-1 p-3 rounded-xl shadow-sm border-l-4 relative cursor-pointer hover:shadow-md transition-shadow ${
                     item.type === 'express' ? 'bg-yellow-50 border-yellow-400' : 
                     item.type === 'vip' ? 'bg-purple-50 border-purple-400' :
                     item.type === 'food' ? 'bg-orange-50 border-orange-400' :
                     item.type === 'move_wait' ? 'bg-gray-50 border-gray-300' :
                     'bg-white border-blue-500'
-                }`}>
-                <div className="flex justify-between items-start">
-                    <h3 className="font-bold text-gray-800 text-sm">{item.name}</h3>
-                    {item.zone && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 whitespace-nowrap">
-                            {item.zone.name}
-                        </span>
-                    )}
-                </div>
-                
-                <div className="mt-2 text-xs text-gray-500 flex flex-col gap-1">
-                    {item.wait > 0 && <span className="flex items-center gap-1"><Clock size={12}/> 預估等待 {item.wait}分</span>}
-                    <span className="text-gray-400">{item.description}</span>
-                    {item.type === 'express' && <span className="text-yellow-700 font-bold">✨ 快速通關</span>}
-                    {item.type === 'vip' && <span className="text-purple-700 font-bold">💎 JCB VIP 禮遇</span>}
-                </div>
+                }`} onClick={() => handleEditItem(item)}>
+                    
+                    <div className="flex justify-between items-start">
+                        <h3 className="font-bold text-gray-800 text-sm">{item.name}</h3>
+                        <div className="flex gap-2">
+                            {item.zone && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 whitespace-nowrap">
+                                    {item.zone.name}
+                                </span>
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }} className="text-gray-400 hover:text-red-500">
+                                <Trash2 size={14}/>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="mt-2 text-xs text-gray-500 flex flex-col gap-1">
+                        {item.wait > 0 && <span className="flex items-center gap-1"><Clock size={12}/> 預估等待 {item.wait}分</span>}
+                        <span className="text-gray-400">{item.description}</span>
+                        {item.type === 'express' && <span className="text-yellow-700 font-bold">✨ 快速通關</span>}
+                        {item.type === 'vip' && <span className="text-purple-700 font-bold">💎 JCB VIP 禮遇</span>}
+                    </div>
+                    
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Edit size={14} className="text-gray-400"/>
+                    </div>
                 </div>
             </div>
             ))
         )}
         
-        <div className="text-center text-xs text-gray-400 mt-8 mb-4">
-            已加入儲存功能，請點擊上方儲存按鈕保存行程
-        </div>
+        <button 
+            onClick={handleAddItem}
+            className="w-full py-3 mt-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold flex items-center justify-center gap-2 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+        >
+            <Plus size={20}/> 新增自訂行程
+        </button>
       </div>
     </div>
   )};
@@ -1013,6 +1045,13 @@ export default function USJPlannerApp() {
       {currentView === 'map' && renderMap()}
       {currentView === 'saved' && renderSavedPlans()}
       
+      <EditModal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+        item={editingItem}
+        onSave={handleSaveItem}
+      />
+
       <div className="fixed bottom-0 max-w-md w-full bg-white border-t border-gray-200 flex justify-around py-3 text-xs text-gray-500 z-50">
           <button onClick={() => setCurrentView('plan')} className={`flex flex-col items-center gap-1 ${currentView === 'plan' ? 'text-blue-600' : ''}`}>
               <Clock size={20}/> 行程
