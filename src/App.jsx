@@ -73,18 +73,62 @@ const getExpressPassContent = (passName) => {
   const content = [];
   const has = (keyword) => passName.includes(keyword) || passName.includes(keyword.replace(' ', ''));
   
-  if (has("Minecart") || has("咚奇剛")) content.push({ id: 'donkey_kong', timed: true });
-  if (has("Race") || has("庫巴") || has("Mario")) content.push({ id: 'mario_kart', timed: true });
-  if (has("Yoshi") || has("耀西")) content.push({ id: 'yoshi', timed: true });
-  if (has("Harry") || has("Potter") || has("禁忌之旅")) content.push({ id: 'harry_potter_journey', timed: true });
-  if (has("Hippogriff") || has("鷹馬")) content.push({ id: 'hippogriff', timed: true });
-  if (has("Flying Dinosaur") || has("飛天翼龍")) content.push({ id: 'flying_dinosaur', timed: false });
-  if (has("Minion") || has("小小兵")) content.push({ id: 'minion_mayhem', timed: false });
-  if (has("Backdrop") || has("逆轉世界")) content.push({ id: 'hollywood_backdrop', timed: true });
-  if (has("XR")) content.push({ id: 'spy_family', timed: true });
-  if (has("JAWS") || has("大白鯊")) content.push({ id: 'jaws', timed: false });
+  // 核心邏輯：定義哪些設施是「必然」需要指定時間的
+  // 包含：所有任天堂世界、所有哈利波特、XR Ride、逆轉世界、4-D 秀
+  const ALWAYS_TIMED_IDS = [
+    'donkey_kong', 
+    'mario_kart', 
+    'yoshi', 
+    'harry_potter_journey', 
+    'hippogriff', 
+    'hollywood_backdrop', 
+    'spy_family',
+    'conan_4d',
+    'jujutsu_4d'
+  ];
+
+  // 輔助函數：加入設施並自動判斷是否需要時間
+  const add = (id, forceTimed = null) => {
+    // 如果沒有強制指定，則查表判斷是否為「必然指定時間」的設施
+    const isTimed = forceTimed !== null ? forceTimed : ALWAYS_TIMED_IDS.includes(id);
+    // 避免重複添加
+    if (!content.some(item => item.id === id)) {
+        content.push({ id, timed: isTimed });
+    }
+  };
+
+  // 1. 任天堂區域 (必然指定)
+  if (has("Minecart") || has("咚奇剛")) add('donkey_kong');
+  if (has("Race") || has("庫巴") || has("Mario")) add('mario_kart');
+  if (has("Yoshi") || has("耀西")) add('yoshi');
   
+  // 2. 哈利波特區域 (必然指定)
+  if (has("Harry") || has("Potter") || has("禁忌之旅")) add('harry_potter_journey');
+  if (has("Hippogriff") || has("鷹馬")) add('hippogriff');
+  
+  // 3. 特殊設施 (必然指定)
+  if (has("Backdrop") || has("逆轉世界")) add('hollywood_backdrop');
+  if (has("XR") || has("SPY")) add('spy_family');
+  if (has("4-D") || has("柯南") || has("咒術")) add('conan_4d'); // 假設 4D 對應柯南或咒術，皆需時間
+
+  // 4. 小小兵 (判斷邏輯複雜：有時指定，有時不指定)
+  // 如果票名特別強調 Minion Mayhem / Special，通常是指定場次
+  // 如果只是 Adventure Special 或其他，可能是非指定
+  if (has("Minion") || has("小小兵")) {
+      const isMinionTimed = has("Minion Mayhem") || has("Minion Special") || has("Minion & Minecart");
+      add('minion_mayhem', isMinionTimed);
+  }
+
+  // 5. 其他通常不指定時間的設施
+  if (has("Flying Dinosaur") || has("飛天翼龍")) add('flying_dinosaur', false);
+  if (has("JAWS") || has("大白鯊")) add('jaws', false);
+  if ((has("Hollywood Dream") || has("好萊塢")) && !has("Backdrop")) add('hollywood_dream', false);
+  if (has("Jurassic Park") || has("侏羅紀")) add('jurassic_park', false);
+  if (has("Space Fantasy") || has("太空")) add('space_fantasy', false);
+
+  // 防呆：如果解析失敗，至少給一個瑪利歐
   if (content.length === 0) return [{ id: 'mario_kart', timed: true }];
+  
   return content;
 };
 
@@ -372,17 +416,20 @@ export default function USJPlannerApp() {
                   {getExpressPassContent(formData.selectedExpressPass).filter(i => i.timed).map(item => {
                     const attr = ATTRACTIONS.find(a => a.id === item.id);
                     return (
-                      <div key={item.id} className="flex items-center justify-between">
-                        <span className="text-xs text-gray-700">{attr?.name}</span>
+                      <div key={item.id} className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-gray-700 font-medium">{attr?.name}</span>
                         <input 
                           type="time"
                           value={formData.expressTimes[item.id] || ''}
                           onChange={(e) => handleExpressTimeChange(item.id, e.target.value)}
-                          className="text-xs p-1 border rounded"
+                          className="text-xs p-1.5 border rounded bg-white focus:ring-2 focus:ring-blue-200 outline-none"
                         />
                       </div>
                     );
                   })}
+                  {getExpressPassContent(formData.selectedExpressPass).filter(i => i.timed).length === 0 && (
+                      <p className="text-xs text-gray-500 italic">此票券無須指定場次。</p>
+                  )}
                 </div>
               )}
             </div>
