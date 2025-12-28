@@ -390,7 +390,7 @@ export default function USJPlannerApp() {
         If it says 19:00 close, DO NOT schedule anything past 19:00. 
         Also look for '予想開園時間' (e.g. 8:15) and start the plan then.`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${activeKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
