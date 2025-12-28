@@ -69,78 +69,70 @@ const EXPRESS_PASS_RAW = [
   "28. 快速通關券4 - Race & JAWS"
 ];
 
+// 針對 28 張票券的詳細定義 (T=需指定時間, F=不需指定, Choice=二擇一)
+const EXPRESS_PASS_DEFINITIONS = {
+  1:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'conan_4d',t:true}, {id:'jurassic_park',t:false}],
+  2:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'minion_mayhem',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  3:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  4:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  5:  [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'flying_dinosaur',t:false}, {id:'jaws',t:false}, {id:'jurassic_park',t:false}],
+  6:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'flying_dinosaur',t:false}, {id:'minion_mayhem',t:false}, {id:'hollywood_dream',t:false}],
+  7:  [{id:'mario_kart',t:true}, {id:'jurassic_park',t:false}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false}, {id:'minion_mayhem',t:true, note:'Ride 2 (The Real)'}], // 修正: 7號有兩個小小兵相關，其中一個是任務
+  8:  [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:true}, {id:'flying_dinosaur',t:false}],
+  9:  [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  10: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  11: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true, choice:'or_flying_dinosaur'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  12: [{id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  13: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'flying_dinosaur',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  14: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'flying_dinosaur',t:false, choice:'or_jaws'}],
+  15: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'spy_family',t:true}, {id:'hollywood_dream',t:false, choice:'or_flying_dinosaur'}],
+  16: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'hollywood_dream',t:false, choice:'or_flying_dinosaur'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  17: [{id:'harry_potter_journey',t:true}, {id:'spy_family',t:true}, {id:'flying_dinosaur',t:false}, {id:'hollywood_dream',t:false}],
+  18: [{id:'harry_potter_journey',t:true}, {id:'hollywood_backdrop',t:true}, {id:'hollywood_dream',t:false, choice:'or_flying_dinosaur'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  19: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'hollywood_backdrop',t:true}, {id:'hollywood_dream',t:false, choice:'or_jaws'}],
+  20: [{id:'harry_potter_journey',t:true}, {id:'spy_family',t:true}, {id:'jaws',t:false}, {id:'jurassic_park',t:false}],
+  21: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'hollywood_backdrop',t:true}, {id:'flying_dinosaur',t:false}],
+  22: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'hollywood_dream',t:false}, {id:'flying_dinosaur',t:false}],
+  23: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  24: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
+  25: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'jujutsu_4d',t:true}, {id:'flying_dinosaur',t:false}],
+  26: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_space'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  27: [{id:'mario_kart',t:true, note:'Play Twice'}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
+  28: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}]
+};
+
 const getExpressPassContent = (passName) => {
-  const content = [];
-  const has = (keyword) => passName.includes(keyword) || passName.includes(keyword.replace(' ', ''));
+  if (!passName) return [];
+  // 取得票券編號 (例如 "23. 快速通關..." -> 23)
+  const indexStr = passName.split('.')[0];
+  const index = parseInt(indexStr);
   
-  // 核心邏輯：定義哪些設施是「必然」需要指定時間的
-  // 包含：所有任天堂世界、所有哈利波特、XR Ride、逆轉世界、4-D 秀
-  const ALWAYS_TIMED_IDS = [
-    'donkey_kong', 
-    'mario_kart', 
-    'yoshi', 
-    'harry_potter_journey', 
-    'hippogriff', 
-    'hollywood_backdrop', 
-    'spy_family',
-    'conan_4d',
-    'jujutsu_4d'
-  ];
-
-  // 輔助函數：加入設施並自動判斷是否需要時間
-  const add = (id, forceTimed = null) => {
-    // 如果沒有強制指定，則查表判斷是否為「必然指定時間」的設施
-    const isTimed = forceTimed !== null ? forceTimed : ALWAYS_TIMED_IDS.includes(id);
-    // 避免重複添加
-    if (!content.some(item => item.id === id)) {
-        content.push({ id, timed: isTimed });
-    }
-  };
-
-  // 1. 任天堂區域 (必然指定)
-  if (has("Minecart") || has("咚奇剛")) add('donkey_kong');
-  if (has("Race") || has("庫巴") || has("Mario")) add('mario_kart');
-  if (has("Yoshi") || has("耀西")) add('yoshi');
-  
-  // 2. 哈利波特區域 (必然指定)
-  if (has("Harry") || has("Potter") || has("禁忌之旅")) add('harry_potter_journey');
-  if (has("Hippogriff") || has("鷹馬")) add('hippogriff');
-  
-  // 3. 特殊設施 (必然指定)
-  if (has("Backdrop") || has("逆轉世界")) add('hollywood_backdrop');
-  if (has("XR") || has("SPY")) add('spy_family');
-  if (has("4-D") || has("柯南") || has("咒術")) add('conan_4d'); // 假設 4D 對應柯南或咒術，皆需時間
-
-  // 4. 小小兵 (判斷邏輯複雜：有時指定，有時不指定)
-  // 如果票名特別強調 Minion Mayhem / Special，通常是指定場次
-  // 如果只是 Adventure Special 或其他，可能是非指定
-  if (has("Minion") || has("小小兵")) {
-      const isMinionTimed = has("Minion Mayhem") || has("Minion Special") || has("Minion & Minecart");
-      add('minion_mayhem', isMinionTimed);
+  const definition = EXPRESS_PASS_DEFINITIONS[index];
+  if (definition) {
+    return definition.map(item => ({
+      id: item.id,
+      timed: item.t,
+      choice: item.choice, // 標記是否有二擇一
+      note: item.note
+    }));
   }
-
-  // 5. 其他通常不指定時間的設施
-  if (has("Flying Dinosaur") || has("飛天翼龍")) add('flying_dinosaur', false);
-  if (has("JAWS") || has("大白鯊")) add('jaws', false);
-  if ((has("Hollywood Dream") || has("好萊塢")) && !has("Backdrop")) add('hollywood_dream', false);
-  if (has("Jurassic Park") || has("侏羅紀")) add('jurassic_park', false);
-  if (has("Space Fantasy") || has("太空")) add('space_fantasy', false);
-
-  // 防呆：如果解析失敗，至少給一個瑪利歐
-  if (content.length === 0) return [{ id: 'mario_kart', timed: true }];
   
-  return content;
+  // Fallback (防呆)
+  return [{ id: 'mario_kart', timed: true }];
 };
 
 // --- 組件開始 ---
 
 export default function USJPlannerApp() {
   const [currentView, setCurrentView] = useState('home'); // home, plan, map, saved
-  const [userApiKey, setUserApiKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
-  // 儲存的計畫列表，初始化時從 localStorage 讀取
+  // 1. 資料暫存與初始化 logic
+  const [userApiKey, setUserApiKey] = useState(() => {
+    return localStorage.getItem('usj_api_key') || '';
+  });
+
   const [savedPlans, setSavedPlans] = useState(() => {
     try {
       const saved = localStorage.getItem('usj_saved_plans');
@@ -150,7 +142,7 @@ export default function USJPlannerApp() {
     }
   });
 
-  const [formData, setFormData] = useState({
+  const defaultFormData = {
     date: new Date().toISOString().split('T')[0],
     duration: '1',
     hasExpress: false,
@@ -162,17 +154,35 @@ export default function USJPlannerApp() {
     needsFood: true,
     specialRequest: '',
     needsTaxRefund: false,
+  };
+
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('usj_form_data');
+      return saved ? JSON.parse(saved) : defaultFormData;
+    } catch (e) {
+      return defaultFormData;
+    }
   });
   
   const [itinerary, setItinerary] = useState([]);
   const [weather, setWeather] = useState({ condition: 'sunny', temp: 15 });
   const [gpsLocation, setGpsLocation] = useState({ x: 50, y: 95 });
 
-  // 當 savedPlans 變更時，寫入 localStorage
+  // 監聽變更並寫入 LocalStorage
+  useEffect(() => {
+    localStorage.setItem('usj_api_key', userApiKey);
+  }, [userApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('usj_form_data', JSON.stringify(formData));
+  }, [formData]);
+
   useEffect(() => {
     localStorage.setItem('usj_saved_plans', JSON.stringify(savedPlans));
   }, [savedPlans]);
 
+  // 天氣模擬
   useEffect(() => {
     const conditions = ['sunny', 'cloudy', 'rainy'];
     const randomCond = conditions[Math.floor(Math.random() * conditions.length)];
@@ -192,10 +202,8 @@ export default function USJPlannerApp() {
     setFormData(prev => ({ ...prev, expressTimes: { ...prev.expressTimes, [attractionId]: time } }));
   };
 
-  // 儲存目前的行程
   const saveCurrentPlan = () => {
     if (itinerary.length === 0) return;
-    
     const newPlan = {
       id: Date.now(),
       timestamp: new Date().toLocaleString(),
@@ -204,12 +212,10 @@ export default function USJPlannerApp() {
       itinerary: itinerary,
       weather: weather
     };
-
     setSavedPlans(prev => [newPlan, ...prev]);
     alert('行程已儲存到「我的行程」！');
   };
 
-  // 讀取行程
   const loadPlan = (plan) => {
     setFormData(plan.formData);
     setItinerary(plan.itinerary);
@@ -217,7 +223,6 @@ export default function USJPlannerApp() {
     setCurrentView('plan');
   };
 
-  // 刪除行程
   const deletePlan = (id) => {
     if (window.confirm('確定要刪除這個行程嗎？')) {
       setSavedPlans(prev => prev.filter(p => p.id !== id));
@@ -240,15 +245,26 @@ export default function USJPlannerApp() {
         let dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'weekday';
         if (formData.date.endsWith('12-25') || formData.date.endsWith('12-31')) dayType = 'holiday';
 
+        // 準備傳給 AI 的快通資料，包含「非指定時間」和「二擇一」的資訊
+        const expressPassDetails = formData.hasExpress && formData.selectedExpressPass 
+          ? getExpressPassContent(formData.selectedExpressPass).map(item => ({
+              id: item.id,
+              name: ATTRACTIONS.find(a => a.id === item.id)?.name || item.id,
+              isFixedTime: item.timed,
+              fixedTime: item.timed ? formData.expressTimes[item.id] : null,
+              choiceGroup: item.choice // 告訴 AI 這是二擇一的選項
+            }))
+          : "None";
+
         const contextData = {
             date: formData.date,
             dayType: dayType,
             weather: weather,
             ticketDuration: formData.duration,
-            expressPass: formData.hasExpress ? {
+            expressPassInfo: {
                 name: formData.selectedExpressPass,
-                fixedTimes: formData.expressTimes
-            } : "None",
+                details: expressPassDetails
+            },
             preferences: {
                 nintendoEntry: formData.nintendoEntryTime,
                 hasJCB: formData.hasJCB,
@@ -272,14 +288,20 @@ export default function USJPlannerApp() {
           You are an expert USJ (Universal Studios Japan) itinerary planner.
           Your goal is to create a JSON schedule that minimizes waiting and walking distance.
           
-          RULES:
-          1. Respect user's fixed Express Pass times absolutely.
-          2. Group attractions by Zone to avoid running back and forth.
-          3. Avoid outdoor rides if weather is rainy.
-          4. Include a lunch break (60 mins) around 11:30-13:30 if requested.
-          5. If 'needsTaxRefund' is true, reserve 60 mins before exit.
-          6. 'startTime' is 08:30. 'endTime' is per user input.
-          7. Output strict JSON array of objects.
+          CRITICAL RULES FOR EXPRESS PASS:
+          1. Respect user's "fixedTime" absolutely.
+          2. For items in 'expressPassInfo.details' that have 'isFixedTime: false', you MUST schedule them to use the Express Pass (wait time = 0) at an optimal time.
+          3. If an item has a 'choiceGroup' (e.g., 'or_jurassic'), it means the user has a choice between this and another ride. 
+             -> DECISION LOGIC: Choose ONE of the conflicting options to use the Express Pass on. Typically, choose the one with longer wait time or better flow. Do not schedule both as Express if they share a choice group.
+             -> Mark the chosen one as type="express".
+          
+          GENERAL RULES:
+          1. Group attractions by Zone to avoid running back and forth.
+          2. Avoid outdoor rides if weather is rainy.
+          3. Include a lunch break (60 mins) around 11:30-13:30 if requested.
+          4. If 'needsTaxRefund' is true, reserve 60 mins before exit.
+          5. 'startTime' is 08:30. 'endTime' is per user input.
+          6. Output strict JSON array of objects.
 
           Output JSON Schema:
           [
@@ -291,7 +313,7 @@ export default function USJPlannerApp() {
               "zoneId": "HOLLYWOOD" | "NINTENDO" etc. (must match ZONES keys),
               "wait": number (minutes, 0 if express/food),
               "duration": number (minutes),
-              "description": "Short note (e.g. 'Use Express Pass')"
+              "description": "Short note (e.g. 'Use Express Pass for Jaws')"
             }
           ]
         `;
@@ -363,7 +385,7 @@ export default function USJPlannerApp() {
            </label>
            <input 
              type="password" 
-             placeholder="若無環境變數，請輸入您的 Key"
+             placeholder="若無環境變數，請輸入您的 Key (自動儲存)"
              value={userApiKey}
              onChange={(e) => setUserApiKey(e.target.value)}
              className="w-full p-2 border rounded-lg text-sm bg-blue-50 focus:ring-2 focus:ring-blue-500 outline-none"
@@ -413,11 +435,16 @@ export default function USJPlannerApp() {
               {formData.selectedExpressPass && (
                 <div className="bg-blue-50 p-3 rounded-lg space-y-2">
                   <p className="text-xs text-blue-800 font-bold mb-1">請輸入票面上的指定場次：</p>
+                  
+                  {/* 只顯示需要時間 (t=true) 的項目 */}
                   {getExpressPassContent(formData.selectedExpressPass).filter(i => i.timed).map(item => {
                     const attr = ATTRACTIONS.find(a => a.id === item.id);
                     return (
                       <div key={item.id} className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-gray-700 font-medium">{attr?.name}</span>
+                        <span className="text-xs text-gray-700 font-medium">
+                          {attr?.name}
+                          {item.choice && <span className="text-blue-500 ml-1">(擇一選項)</span>}
+                        </span>
                         <input 
                           type="time"
                           value={formData.expressTimes[item.id] || ''}
@@ -427,9 +454,25 @@ export default function USJPlannerApp() {
                       </div>
                     );
                   })}
+
                   {getExpressPassContent(formData.selectedExpressPass).filter(i => i.timed).length === 0 && (
                       <p className="text-xs text-gray-500 italic">此票券無須指定場次。</p>
                   )}
+
+                  {/* 顯示不需指定時間的項目 (供使用者參考) */}
+                  <div className="mt-3 pt-2 border-t border-gray-200">
+                    <p className="text-[10px] text-gray-500 font-bold mb-1">包含的非指定/擇一設施 (AI 將自動安排)：</p>
+                    <div className="flex flex-wrap gap-1">
+                      {getExpressPassContent(formData.selectedExpressPass).filter(i => !i.timed).map(item => {
+                         const attr = ATTRACTIONS.find(a => a.id === item.id);
+                         return (
+                           <span key={item.id} className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-600">
+                             {attr?.name}{item.choice ? '*' : ''}
+                           </span>
+                         );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
