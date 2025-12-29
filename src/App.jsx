@@ -4,65 +4,66 @@ import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircl
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
 
-// --- 地圖投影設定 (關鍵修正) ---
+// --- 地圖定位與常數定義 ---
 
+// 1. 地圖參數設定
 const MAP_SETTINGS = {
-    // 地圖中心點的真實經緯度 (大約在園區中央湖泊位置)
+    // 中心點 (大約在園區中央湖泊)
     centerLat: 34.666800,
     centerLng: 135.433000,
     
-    // 旋轉角度：180 + 30 = 210度 (順時針)
-    // 這代表地圖的 "上方" 對應現實世界的 "西南西" 方向
+    // 您的地圖旋轉設定：180 + 30 = 210 度
+    // 這代表圖片的「上方」對應真實世界的 210 度方位 (SSW)
     rotation: 210, 
     
-    // 縮放比例 (數值越大，地圖涵蓋範圍越小)
-    // 需根據圖片實際裁切範圍微調
-    scaleX: 14000, 
-    scaleY: 17000  
+    // 縮放比例 (需要根據圖片解析度微調，這裡設定一個通用值)
+    scaleX: 18000, 
+    scaleY: 22000
 };
 
-// 輔助函式：將真實 GPS 轉換為地圖上的 % 座標
+// 2. 輔助函式：將真實 GPS 轉換為地圖上的 % 座標
 const projectGpsToMap = (lat, lng) => {
     const { centerLat, centerLng, rotation, scaleX, scaleY } = MAP_SETTINGS;
     
-    // 1. 計算相對於中心的位移 (經緯度差)
+    // 1. 計算相對於中心的位移
     const dLat = lat - centerLat;
     const dLng = lng - centerLng;
 
-    // 2. 轉換為弧度
+    // 2. 旋轉變換
     const rad = rotation * (Math.PI / 180);
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
 
-    // 3. 旋轉變換 (Rotation Matrix)
-    // 經度 (x) 需修正緯度造成的距離變形 (大阪約 0.82)
+    // 經度修正 (大阪緯度約 34.6度，經度距離需乘 cos(lat) 約 0.82)
     const lngCorrection = 0.82; 
     const xRaw = dLng * lngCorrection;
     const yRaw = dLat;
 
+    // 旋轉公式
     const xRotated = xRaw * cos - yRaw * sin;
     const yRotated = xRaw * sin + yRaw * cos;
 
-    // 4. 映射到螢幕百分比 (中心點為 50, 50)
-    // Y 軸相反 (緯度向上為正，螢幕向下為正)
+    // 3. 映射到螢幕百分比 (中心點為 50%, 50%)
+    // 注意：螢幕 Y 軸向下為正，緯度 Y 軸向上為正，故 Y 需反向
     const xPercent = 50 + (xRotated * scaleX);
     const yPercent = 50 - (yRotated * scaleY);
 
     return { x: xPercent, y: yPercent };
 };
 
-// --- 區域資料 (使用真實 GPS 座標) ---
-// 這些座標是根據您提供的錨點與 Google Maps 數據推算的
+// 3. 區域資料 (使用真實 GPS 座標，對應 A-J 編號)
+// 這些座標來自 Google Maps 真實數據
 const ZONES_DATA = [
-  { id: 'hollywood', name: '好萊塢區', lat: 34.663620, lng: 135.434522, color: '#fca5a5' }, // 入口附近
-  { id: 'new_york', name: '紐約區', lat: 34.665500, lng: 135.436000, color: '#93c5fd' },
-  { id: 'minion', name: '小小兵樂園', lat: 34.667471, lng: 135.435172, color: '#fde047' }, // 您提供的點 1
-  { id: 'jurassic', name: '侏儸紀公園', lat: 34.668000, lng: 135.433000, color: '#4ade80' },
-  { id: 'waterworld', name: '水世界', lat: 34.668436, lng: 135.431870, color: '#67e8f9' }, // 您提供的點 5
-  { id: 'amity', name: '親善村', lat: 34.666500, lng: 135.431000, color: '#fdba74' },
-  { id: 'harry_potter', name: '哈利波特', lat: 34.665305, lng: 135.429082, color: '#1e293b', textColor: 'white' }, // 您提供的點 4
-  { id: 'nintendo', name: '任天堂世界', lat: 34.670000, lng: 135.432000, color: '#ef4444', textColor: 'white' },
-  { id: 'wonderland', name: '環球奇境', lat: 34.663531, lng: 135.431924, color: '#f9a8d4' }, // 您提供的點 3
+  { id: 'hollywood', code: 'A', name: '好萊塢區域', lat: 34.663620, lng: 135.434522, color: '#fca5a5' },
+  { id: 'new_york', code: 'B', name: '紐約區域', lat: 34.665500, lng: 135.436000, color: '#93c5fd' },
+  { id: 'minion', code: 'C', name: '小小兵樂園', lat: 34.667471, lng: 135.435172, color: '#fde047' },
+  { id: 'san_francisco', code: 'D', name: '舊金山區域', lat: 34.666000, lng: 135.434000, color: '#d1d5db' }, 
+  { id: 'jurassic', code: 'E', name: '侏儸紀公園', lat: 34.668000, lng: 135.433000, color: '#4ade80' },
+  { id: 'waterworld', code: 'F', name: '水世界', lat: 34.668436, lng: 135.431870, color: '#67e8f9' },
+  { id: 'amity', code: 'G', name: '親善村', lat: 34.666500, lng: 135.431000, color: '#fdba74' },
+  { id: 'nintendo', code: 'H', name: '任天堂世界', lat: 34.670000, lng: 135.432000, color: '#ef4444', textColor: 'white' },
+  { id: 'harry_potter', code: 'I', name: '哈利波特', lat: 34.665305, lng: 135.429082, color: '#1e293b', textColor: 'white' },
+  { id: 'wonderland', code: 'J', name: '環球奇境', lat: 34.663531, lng: 135.431924, color: '#f9a8d4' },
 ];
 
 // 將 ZONES_DATA 轉換為物件以便快速查找
@@ -71,7 +72,7 @@ const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
     return acc;
 }, {});
 
-// 核心遊樂設施 (現在只需關聯 zone id，座標會自動計算)
+// 核心遊樂設施 (關聯 zone id)
 const ATTRACTIONS = [
   { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'nintendo', type: 'ride', wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
   { id: 'mario_kart', name: '瑪利歐賽車：庫巴的挑戰書', zone: 'nintendo', type: 'ride', wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'medium' },
@@ -92,7 +93,7 @@ const ATTRACTIONS = [
   { id: 'waterworld_show', name: '水世界表演', zone: 'waterworld', type: 'show', wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show' },
 ];
 
-// 完整設施清單 (部分範例)
+// 完整設施清單 (部分範例，供 AI 參考)
 const FACILITY_DATABASE = [
   {id:1,name:"1UP工廠™",desc:"有許多在別的地方買不到的周邊商品！",type:"shop"},
   {id:12,name:"鷹馬的飛行™",desc:"適合全家人的雲霄飛車。",type:"ride"},
@@ -385,10 +386,8 @@ export default function USJPlannerApp() {
             (position) => {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
-                // 使用新的投影邏輯
                 const { x, y } = projectGpsToMap(lat, lng);
                 
-                // 限制在 0-100 範圍內，但允許稍微超出以示位置在邊緣
                 setGpsLocation({ 
                     x: Math.min(Math.max(x, -10), 110), 
                     y: Math.min(Math.max(y, -10), 110) 
@@ -448,7 +447,6 @@ export default function USJPlannerApp() {
       }));
   };
 
-  // CRUD Operations
   const handleEditItem = (item) => {
       setEditingItem(item);
       setIsEditModalOpen(true);
@@ -652,7 +650,7 @@ export default function USJPlannerApp() {
                 return {
                     ...item,
                     start: startMins,
-                    zone: ZONES_MAP[item.zoneId] || null // 修正：使用 ZONES_MAP 確保正確對應
+                    zone: ZONES_MAP[item.zoneId] || null 
                 };
             });
         };
@@ -680,8 +678,6 @@ export default function USJPlannerApp() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
-  // --- Map Interaction Handlers ---
-  
   const handleZoom = (direction) => {
       setViewState(prev => ({
           ...prev,
@@ -1186,7 +1182,7 @@ export default function USJPlannerApp() {
                 transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})`,
                 transformOrigin: 'center',
                 transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-                display: 'inline-block' // 重要：讓 div 寬高由內容（圖片）決定
+                display: 'inline-block' 
             }}
         >
             {/* Content Wrapper - Image + SVG */}
@@ -1195,7 +1191,7 @@ export default function USJPlannerApp() {
                     <img 
                         src={mapImage} 
                         alt="Uploaded Map" 
-                        style={{ display: 'block', maxWidth: 'none', maxHeight: 'none' }} // 解除 max 限制
+                        style={{ display: 'block', maxWidth: 'none', maxHeight: 'none' }}
                         draggable={false}
                     />
                 ) : (
@@ -1208,13 +1204,16 @@ export default function USJPlannerApp() {
                 {/* Interactive Overlay Layer */}
                 <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none">
                     {/* Zones */}
-                    {Object.values(ZONES).map(zone => {
+                    {ZONES_DATA.map(zone => {
                         const { x, y } = projectGpsToMap(zone.lat, zone.lng);
                         return (
                             <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
                                 <circle cx={x} cy={y} r="8" fill={zone.color} opacity="0.6" />
                                 <text x={x} y={y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
-                                    {zone.name.substring(0, 4)}
+                                    {zone.name.substring(0, 4)} 
+                                </text>
+                                <text x={x} y={y} dy="-0.8em" textAnchor="middle" fontSize="3" fill="blue" fontWeight="bold">
+                                    {zone.code} 
                                 </text>
                             </g>
                         );
@@ -1222,7 +1221,7 @@ export default function USJPlannerApp() {
 
                     {/* Attractions */}
                     {ATTRACTIONS.map(attr => {
-                        const z = ZONES_MAP[attr.zone]; // 使用 ZONES_MAP
+                        const z = ZONES_MAP[attr.zone];
                         if (!z) return null;
                         
                         const { x, y } = projectGpsToMap(z.lat, z.lng);
@@ -1277,7 +1276,6 @@ export default function USJPlannerApp() {
         {!realGpsEnabled && (
             <div className="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-lg pointer-events-auto">
                 <button className="p-2 bg-blue-100 rounded-full text-blue-600 mb-2 block" onClick={() => {
-                    // 模擬一個合理的 GPS 位移
                     const fakeLat = 34.666800 + (Math.random() - 0.5) * 0.005;
                     const fakeLng = 135.433000 + (Math.random() - 0.5) * 0.005;
                     const { x, y } = projectGpsToMap(fakeLat, fakeLng);
