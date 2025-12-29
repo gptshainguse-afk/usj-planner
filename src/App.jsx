@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, Image as ImageIcon, Upload } from 'lucide-react';
+import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, Image as ImageIcon, Upload, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
@@ -68,7 +68,6 @@ const FACILITY_DATABASE = [
   {id:62,name:"環球奇境",desc: "艾蒙、史努比、Hello Kitty的城鎮。", type: "area" },
   {id:74,name:"水世界™",desc:"特技表演秀。",type:"show"},
   {id:158,name:"鬼滅之刃 XR乘車遊",desc:"VR雲霄飛車。",type:"ride"},
-  // ... (在真實環境中應包含所有158項)
 ];
 
 const EXPRESS_PASS_DEFINITIONS = {
@@ -293,6 +292,12 @@ export default function USJPlannerApp() {
 
   // Hidden file input ref
   const fileInputRef = useRef(null);
+
+  // --- Map Interaction State ---
+  const mapContainerRef = useRef(null);
+  const [viewState, setViewState] = useState({ scale: 1, x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [startPan, setStartPan] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     localStorage.setItem('usj_api_key', userApiKey);
@@ -639,6 +644,148 @@ export default function USJPlannerApp() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
+  // --- Map Interaction Handlers ---
+  
+  const handleZoom = (direction) => {
+      setViewState(prev => ({
+          ...prev,
+          scale: Math.min(Math.max(prev.scale + (direction * 0.5), 1), 5) // Limits: 1x to 5x
+      }));
+  };
+
+  const handleResetMap = () => {
+      setViewState({ scale: 1, x: 0, y: 0 });
+  };
+
+  // Mouse/Touch Handlers for Panning
+  const onMouseDown = (e) => {
+      setIsDragging(true);
+      setStartPan({ x: e.clientX - viewState.x, y: e.clientY - viewState.y });
+  };
+
+  const onMouseMove = (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      setViewState(prev => ({
+          ...prev,
+          x: e.clientX - startPan.x,
+          y: e.clientY - startPan.y
+      }));
+  };
+
+  const onMouseUp = () => {
+      setIsDragging(false);
+  };
+
+  const onTouchStart = (e) => {
+      if (e.touches.length === 1) {
+          setIsDragging(true);
+          setStartPan({ x: e.touches[0].clientX - viewState.x, y: e.touches[0].clientY - viewState.y });
+      }
+  };
+
+  const onTouchMove = (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      // No preventDefault here to allow other gestures unless necessary
+      setViewState(prev => ({
+          ...prev,
+          x: e.touches[0].clientX - startPan.x,
+          y: e.touches[0].clientY - startPan.y
+      }));
+  };
+
+  const onTouchEnd = () => {
+      setIsDragging(false);
+  };
+
+  const renderItinerary = () => {
+    return (
+    <div className="pb-24">
+      <div className="bg-white sticky top-0 z-10 shadow-sm p-4 flex justify-between items-center">
+        <h2 className="font-bold text-lg flex items-center gap-2"><Sparkles size={18} className="text-yellow-500"/> 專屬攻略</h2>
+        <div className="flex gap-2">
+            <button onClick={callGeminiAPI} className="p-2 bg-blue-100 rounded-full text-blue-600 hover:bg-blue-200 transition-colors" title="更新天氣/情報">
+                <RefreshCw size={20}/>
+            </button>
+            <button onClick={saveCurrentPlan} className="p-2 bg-green-100 rounded-full text-green-600 hover:bg-green-200 transition-colors" title="儲存行程">
+                <Save size={20}/>
+            </button>
+            <button onClick={() => setCurrentView('map')} className="p-2 bg-gray-100 rounded-full text-blue-600"><MapIcon size={20}/></button>
+            <button onClick={() => setCurrentView('home')} className="p-2 bg-gray-100 rounded-full text-gray-600"><Settings size={20}/></button>
+        </div>
+      </div>
+
+      <div className="px-4 py-2 text-center text-xs text-gray-500 bg-blue-50 border-b border-blue-100 mb-4 flex items-center justify-center gap-2">
+          {displayWeather.condition === 'rainy' ? <Umbrella size={14}/> : <Sun size={14}/>}
+          {displayWeather.text}
+      </div>
+
+      <div className="px-4 relative">
+        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+        
+        {itinerary.length === 0 ? (
+            <div className="text-center py-10 text-gray-400 text-sm">
+                尚未有行程，請點擊「重新預測」或新增項目。
+            </div>
+        ) : (
+            itinerary.map((item, index) => (
+            <div key={index} className="flex gap-4 mb-6 relative animate-slide-in group" style={{animationDelay: `${index * 0.1}s`}}>
+                <div className="w-12 flex-shrink-0 flex flex-col items-center z-10">
+                <div className={`w-3 h-3 rounded-full mb-1 ${
+                    item.type === 'express' ? 'bg-yellow-400 ring-4 ring-yellow-100' : 
+                    item.type === 'vip' ? 'bg-purple-500 ring-4 ring-purple-100' :
+                    'bg-blue-500 ring-4 ring-blue-100'
+                }`}></div>
+                <span className="text-xs font-bold text-gray-500">{formatTime(item.start)}</span>
+                </div>
+
+                <div className={`flex-1 p-3 rounded-xl shadow-sm border-l-4 relative cursor-pointer hover:shadow-md transition-shadow ${
+                    item.type === 'express' ? 'bg-yellow-50 border-yellow-400' : 
+                    item.type === 'vip' ? 'bg-purple-50 border-purple-400' :
+                    item.type === 'food' ? 'bg-orange-50 border-orange-400' :
+                    item.type === 'move_wait' ? 'bg-gray-50 border-gray-300' :
+                    'bg-white border-blue-500'
+                }`} onClick={() => handleEditItem(item)}>
+                    
+                    <div className="flex justify-between items-start">
+                        <h3 className="font-bold text-gray-800 text-sm">{item.name}</h3>
+                        <div className="flex gap-2">
+                            {item.zone && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 whitespace-nowrap">
+                                    {item.zone.name}
+                                </span>
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }} className="text-gray-400 hover:text-red-500">
+                                <Trash2 size={14}/>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="mt-2 text-xs text-gray-500 flex flex-col gap-1">
+                        {item.wait > 0 && <span className="flex items-center gap-1"><Clock size={12}/> 預估等待 {item.wait}分</span>}
+                        <span className="text-gray-400">{item.description}</span>
+                        {item.type === 'express' && <span className="text-yellow-700 font-bold">✨ 快速通關</span>}
+                        {item.type === 'vip' && <span className="text-purple-700 font-bold">💎 JCB VIP 禮遇</span>}
+                    </div>
+                    
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Edit size={14} className="text-gray-400"/>
+                    </div>
+                </div>
+            </div>
+            ))
+        )}
+        
+        <button 
+            onClick={handleAddItem}
+            className="w-full py-3 mt-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold flex items-center justify-center gap-2 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+        >
+            <Plus size={20}/> 新增自訂行程
+        </button>
+      </div>
+    </div>
+  )};
+
   const renderHome = () => (
     <div className="space-y-6 pb-20">
       <div className="bg-gradient-to-br from-blue-700 to-blue-500 text-white p-6 rounded-b-3xl shadow-lg relative overflow-hidden">
@@ -914,94 +1061,6 @@ export default function USJPlannerApp() {
     </div>
   );
 
-  const renderItinerary = () => {
-    return (
-    <div className="pb-24">
-      <div className="bg-white sticky top-0 z-10 shadow-sm p-4 flex justify-between items-center">
-        <h2 className="font-bold text-lg flex items-center gap-2"><Sparkles size={18} className="text-yellow-500"/> 專屬攻略</h2>
-        <div className="flex gap-2">
-            <button onClick={callGeminiAPI} className="p-2 bg-blue-100 rounded-full text-blue-600 hover:bg-blue-200 transition-colors" title="更新天氣/情報">
-                <RefreshCw size={20}/>
-            </button>
-            <button onClick={saveCurrentPlan} className="p-2 bg-green-100 rounded-full text-green-600 hover:bg-green-200 transition-colors" title="儲存行程">
-                <Save size={20}/>
-            </button>
-            <button onClick={() => setCurrentView('map')} className="p-2 bg-gray-100 rounded-full text-blue-600"><MapIcon size={20}/></button>
-            <button onClick={() => setCurrentView('home')} className="p-2 bg-gray-100 rounded-full text-gray-600"><Settings size={20}/></button>
-        </div>
-      </div>
-
-      <div className="px-4 py-2 text-center text-xs text-gray-500 bg-blue-50 border-b border-blue-100 mb-4 flex items-center justify-center gap-2">
-          {displayWeather.condition === 'rainy' ? <Umbrella size={14}/> : <Sun size={14}/>}
-          {displayWeather.text}
-      </div>
-
-      <div className="px-4 relative">
-        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-        
-        {itinerary.length === 0 ? (
-            <div className="text-center py-10 text-gray-400 text-sm">
-                尚未有行程，請點擊「重新預測」或新增項目。
-            </div>
-        ) : (
-            itinerary.map((item, index) => (
-            <div key={index} className="flex gap-4 mb-6 relative animate-slide-in group" style={{animationDelay: `${index * 0.1}s`}}>
-                <div className="w-12 flex-shrink-0 flex flex-col items-center z-10">
-                <div className={`w-3 h-3 rounded-full mb-1 ${
-                    item.type === 'express' ? 'bg-yellow-400 ring-4 ring-yellow-100' : 
-                    item.type === 'vip' ? 'bg-purple-500 ring-4 ring-purple-100' :
-                    'bg-blue-500 ring-4 ring-blue-100'
-                }`}></div>
-                <span className="text-xs font-bold text-gray-500">{formatTime(item.start)}</span>
-                </div>
-
-                <div className={`flex-1 p-3 rounded-xl shadow-sm border-l-4 relative cursor-pointer hover:shadow-md transition-shadow ${
-                    item.type === 'express' ? 'bg-yellow-50 border-yellow-400' : 
-                    item.type === 'vip' ? 'bg-purple-50 border-purple-400' :
-                    item.type === 'food' ? 'bg-orange-50 border-orange-400' :
-                    item.type === 'move_wait' ? 'bg-gray-50 border-gray-300' :
-                    'bg-white border-blue-500'
-                }`} onClick={() => handleEditItem(item)}>
-                    
-                    <div className="flex justify-between items-start">
-                        <h3 className="font-bold text-gray-800 text-sm">{item.name}</h3>
-                        <div className="flex gap-2">
-                            {item.zone && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 whitespace-nowrap">
-                                    {item.zone.name}
-                                </span>
-                            )}
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }} className="text-gray-400 hover:text-red-500">
-                                <Trash2 size={14}/>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="mt-2 text-xs text-gray-500 flex flex-col gap-1">
-                        {item.wait > 0 && <span className="flex items-center gap-1"><Clock size={12}/> 預估等待 {item.wait}分</span>}
-                        <span className="text-gray-400">{item.description}</span>
-                        {item.type === 'express' && <span className="text-yellow-700 font-bold">✨ 快速通關</span>}
-                        {item.type === 'vip' && <span className="text-purple-700 font-bold">💎 JCB VIP 禮遇</span>}
-                    </div>
-                    
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Edit size={14} className="text-gray-400"/>
-                    </div>
-                </div>
-            </div>
-            ))
-        )}
-        
-        <button 
-            onClick={handleAddItem}
-            className="w-full py-3 mt-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold flex items-center justify-center gap-2 hover:bg-gray-50 hover:border-gray-400 transition-colors"
-        >
-            <Plus size={20}/> 新增自訂行程
-        </button>
-      </div>
-    </div>
-  )};
-
   const renderMap = () => (
     <div className="h-full flex flex-col bg-gray-100">
        <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center">
@@ -1017,52 +1076,90 @@ export default function USJPlannerApp() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden relative bg-[#e0f2fe]">
-        {/* Map Image Layer */}
-        <div className="absolute inset-0">
-            {mapImage ? (
-                <img 
-                    src={mapImage} 
-                    alt="Uploaded Map" 
-                    className="w-full h-full object-cover"
-                />
-            ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-100">
-                    <MapIcon size={48} className="mb-2 opacity-20"/>
-                    <p className="text-xs">尚未上傳地圖</p>
-                </div>
-            )}
+      <div 
+        className="flex-1 overflow-hidden relative bg-[#e0f2fe]"
+        ref={mapContainerRef}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Transform Layer */}
+        <div 
+            style={{ 
+                transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})`,
+                transformOrigin: '0 0',
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                width: '100%',
+                height: '100%',
+                position: 'absolute',
+                top: 0,
+                left: 0
+            }}
+        >
+            {/* Map Image Layer */}
+            <div className="absolute inset-0 w-full h-full">
+                {mapImage ? (
+                    <img 
+                        src={mapImage} 
+                        alt="Uploaded Map" 
+                        className="w-full h-full object-cover"
+                        draggable={false}
+                    />
+                ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-100">
+                        <MapIcon size={48} className="mb-2 opacity-20"/>
+                        <p className="text-xs">尚未上傳地圖</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Interactive Overlay Layer */}
+            <svg viewBox="0 0 100 100" className="w-full h-full absolute inset-0 pointer-events-none">
+                {/* Zones - Interactive Click Areas */}
+                {Object.values(ZONES).map(zone => (
+                    <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
+                        <circle cx={zone.x} cy={zone.y} r="8" fill={zone.color} opacity="0.6" />
+                        <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
+                            {zone.name.substring(0, 4)}
+                        </text>
+                    </g>
+                ))}
+
+                {/* Attractions Points */}
+                {ATTRACTIONS.map(attr => {
+                    const z = ZONES[attr.zone];
+                    const offsetX = (Math.random() - 0.5) * 5;
+                    const offsetY = (Math.random() - 0.5) * 5;
+                    return (
+                        <circle key={attr.id} cx={z.x + offsetX} cy={z.y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
+                    );
+                })}
+
+                {/* User GPS Location Marker */}
+                <g transform={`translate(${gpsLocation.x}, ${gpsLocation.y})`}>
+                    <circle r="4" fill="#3b82f6" opacity="0.3" className="animate-ping" />
+                    <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
+                </g>
+            </svg>
+        </div>
+        
+        {/* Map Controls */}
+        <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto">
+            <button onClick={() => handleZoom(1)} className="p-2 bg-white rounded shadow text-gray-600 hover:text-blue-600">
+                <ZoomIn size={20}/>
+            </button>
+            <button onClick={() => handleZoom(-1)} className="p-2 bg-white rounded shadow text-gray-600 hover:text-blue-600">
+                <ZoomOut size={20}/>
+            </button>
+            <button onClick={handleResetMap} className="p-2 bg-white rounded shadow text-gray-600 hover:text-blue-600">
+                <Maximize size={20}/>
+            </button>
         </div>
 
-        {/* Interactive Overlay Layer */}
-        <svg viewBox="0 0 100 100" className="w-full h-full absolute inset-0 pointer-events-none">
-            {/* Zones - Interactive Click Areas */}
-            {Object.values(ZONES).map(zone => (
-                <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
-                    <circle cx={zone.x} cy={zone.y} r="8" fill={zone.color} opacity="0.6" />
-                    <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
-                        {zone.name.substring(0, 4)}
-                    </text>
-                </g>
-            ))}
-
-            {/* Attractions Points */}
-            {ATTRACTIONS.map(attr => {
-                const z = ZONES[attr.zone];
-                const offsetX = (Math.random() - 0.5) * 5;
-                const offsetY = (Math.random() - 0.5) * 5;
-                return (
-                    <circle key={attr.id} cx={z.x + offsetX} cy={z.y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
-                );
-            })}
-
-            {/* User GPS Location Marker */}
-            <g transform={`translate(${gpsLocation.x}, ${gpsLocation.y})`}>
-                <circle r="4" fill="#3b82f6" opacity="0.3" className="animate-ping" />
-                <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
-            </g>
-        </svg>
-        
         {/* Upload Button */}
         <div className="absolute bottom-20 right-4 pointer-events-auto">
             <button 
@@ -1092,8 +1189,8 @@ export default function USJPlannerApp() {
         )}
 
         {/* Map Calibration Notice */}
-        <div className="absolute top-2 left-2 right-2 bg-white/90 p-2 rounded text-[10px] text-gray-500 shadow-sm pointer-events-none">
-            地圖定位模式：請確保上傳的是正北朝上的 USJ 完整園區地圖以獲得最佳 GPS 體驗。
+        <div className="absolute top-2 left-2 right-14 bg-white/90 p-2 rounded text-[10px] text-gray-500 shadow-sm pointer-events-none">
+            地圖定位模式：請確保上傳的是正北朝上的 USJ 完整園區地圖。
         </div>
       </div>
     </div>
