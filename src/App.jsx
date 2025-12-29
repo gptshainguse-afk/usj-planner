@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate } from 'lucide-react';
+import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, Image as ImageIcon, Upload } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
@@ -285,10 +285,14 @@ export default function USJPlannerApp() {
   const [gpsLocation, setGpsLocation] = useState({ x: 50, y: 95 }); // 模擬或真實位置 (0-100%)
   const [realGpsEnabled, setRealGpsEnabled] = useState(false); // 開關真實 GPS
   const [displayWeather, setDisplayWeather] = useState({ condition: 'sunny', temp: 15, text: '尚未取得天氣資訊' });
+  const [mapImage, setMapImage] = useState(null); // 地圖圖片
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+
+  // Hidden file input ref
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem('usj_api_key', userApiKey);
@@ -301,6 +305,26 @@ export default function USJPlannerApp() {
   useEffect(() => {
     localStorage.setItem('usj_saved_plans', JSON.stringify(savedPlans));
   }, [savedPlans]);
+
+  // Load map image from local storage
+  useEffect(() => {
+      const savedMap = localStorage.getItem('usj_map_image');
+      if (savedMap) setMapImage(savedMap);
+  }, []);
+
+  // Handle map upload
+  const handleMapUpload = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              const base64String = reader.result;
+              setMapImage(base64String);
+              localStorage.setItem('usj_map_image', base64String);
+          };
+          reader.readAsDataURL(file);
+      }
+  };
 
   // GPS 處理邏輯
   useEffect(() => {
@@ -996,19 +1020,18 @@ export default function USJPlannerApp() {
       <div className="flex-1 overflow-hidden relative bg-[#e0f2fe]">
         {/* Map Image Layer */}
         <div className="absolute inset-0">
-            {/* Placeholder for the map image. User needs to add 'usj_map.jpg' to public folder */}
-            <img 
-                src="https://www.usj.co.jp/web/d_common/img/usj-map-guide-studio-thumb.jpg" 
-                alt="USJ Map" 
-                className="w-full h-full object-cover opacity-50"
-                onError={(e) => {
-                    e.target.style.display='none'; // Hide if not found, show SVG bg
-                }}
-            />
-            {/* Instructions for user (hidden in production ideally) */}
-            <div className="absolute bottom-2 right-2 text-[10px] text-gray-400 bg-white/80 p-1 rounded">
-                請將地圖存為 public/usj_map.jpg
-            </div>
+            {mapImage ? (
+                <img 
+                    src={mapImage} 
+                    alt="Uploaded Map" 
+                    className="w-full h-full object-cover"
+                />
+            ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-100">
+                    <MapIcon size={48} className="mb-2 opacity-20"/>
+                    <p className="text-xs">尚未上傳地圖</p>
+                </div>
+            )}
         </div>
 
         {/* Interactive Overlay Layer */}
@@ -1026,7 +1049,6 @@ export default function USJPlannerApp() {
             {/* Attractions Points */}
             {ATTRACTIONS.map(attr => {
                 const z = ZONES[attr.zone];
-                // Simple static offset for demo. Real app needs precise coords.
                 const offsetX = (Math.random() - 0.5) * 5;
                 const offsetY = (Math.random() - 0.5) * 5;
                 return (
@@ -1041,6 +1063,24 @@ export default function USJPlannerApp() {
             </g>
         </svg>
         
+        {/* Upload Button */}
+        <div className="absolute bottom-20 right-4 pointer-events-auto">
+            <button 
+                onClick={() => fileInputRef.current.click()}
+                className="p-3 bg-white rounded-full shadow-lg text-gray-600 hover:text-blue-600 transition-colors"
+                title="上傳地圖圖片"
+            >
+                <ImageIcon size={24}/>
+            </button>
+            <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleMapUpload}
+                accept="image/*"
+                className="hidden"
+            />
+        </div>
+        
         {/* Simulated GPS Controls (Only show if Real GPS is OFF) */}
         {!realGpsEnabled && (
             <div className="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-lg pointer-events-auto">
@@ -1050,6 +1090,11 @@ export default function USJPlannerApp() {
                 <span className="text-[10px] text-gray-500 block text-center">模擬移動</span>
             </div>
         )}
+
+        {/* Map Calibration Notice */}
+        <div className="absolute top-2 left-2 right-2 bg-white/90 p-2 rounded text-[10px] text-gray-500 shadow-sm pointer-events-none">
+            地圖定位模式：請確保上傳的是正北朝上的 USJ 完整園區地圖以獲得最佳 GPS 體驗。
+        </div>
       </div>
     </div>
   );
