@@ -1,50 +1,98 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, Image as ImageIcon, Upload, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
 
-// --- 地圖定位與常數定義 ---
+// --- 地圖投影設定 (關鍵修正) ---
 
-const MAP_CALIBRATION = {
-    north: 34.669800,
-    south: 34.663500,
-    west: 135.428500,
-    east: 135.438000
+const MAP_SETTINGS = {
+    // 地圖中心點的真實經緯度 (大約在園區中央湖泊位置)
+    centerLat: 34.666800,
+    centerLng: 135.433000,
+    
+    // 旋轉角度：180 + 30 = 210度 (順時針)
+    // 這代表地圖的 "上方" 對應現實世界的 "西南西" 方向
+    rotation: 210, 
+    
+    // 縮放比例 (數值越大，地圖涵蓋範圍越小)
+    // 需根據圖片實際裁切範圍微調
+    scaleX: 14000, 
+    scaleY: 17000  
 };
 
-const ZONES = {
-  HOLLYWOOD: { id: 'hollywood', name: '好萊塢區', x: 50, y: 80, color: '#fca5a5' },
-  NEW_YORK: { id: 'new_york', name: '紐約區', x: 65, y: 65, color: '#93c5fd' },
-  MINION: { id: 'minion', name: '小小兵樂園', x: 75, y: 55, color: '#fde047' },
-  JURASSIC: { id: 'jurassic', name: '侏儸紀公園', x: 65, y: 40, color: '#4ade80' },
-  WATERWORLD: { id: 'waterworld', name: '水世界', x: 30, y: 35, color: '#67e8f9' },
-  AMITY: { id: 'amity', name: '親善村', x: 45, y: 50, color: '#fdba74' },
-  HARRY_POTTER: { id: 'harry_potter', name: '哈利波特', x: 80, y: 20, color: '#1e293b', textColor: 'white' },
-  NINTENDO: { id: 'nintendo', name: '任天堂世界', x: 45, y: 15, color: '#ef4444', textColor: 'white' },
-  WONDERLAND: { id: 'wonderland', name: '環球奇境', x: 25, y: 55, color: '#f9a8d4' },
+// 輔助函式：將真實 GPS 轉換為地圖上的 % 座標
+const projectGpsToMap = (lat, lng) => {
+    const { centerLat, centerLng, rotation, scaleX, scaleY } = MAP_SETTINGS;
+    
+    // 1. 計算相對於中心的位移 (經緯度差)
+    const dLat = lat - centerLat;
+    const dLng = lng - centerLng;
+
+    // 2. 轉換為弧度
+    const rad = rotation * (Math.PI / 180);
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    // 3. 旋轉變換 (Rotation Matrix)
+    // 經度 (x) 需修正緯度造成的距離變形 (大阪約 0.82)
+    const lngCorrection = 0.82; 
+    const xRaw = dLng * lngCorrection;
+    const yRaw = dLat;
+
+    const xRotated = xRaw * cos - yRaw * sin;
+    const yRotated = xRaw * sin + yRaw * cos;
+
+    // 4. 映射到螢幕百分比 (中心點為 50, 50)
+    // Y 軸相反 (緯度向上為正，螢幕向下為正)
+    const xPercent = 50 + (xRotated * scaleX);
+    const yPercent = 50 - (yRotated * scaleY);
+
+    return { x: xPercent, y: yPercent };
 };
 
-const ATTRACTIONS = [
-  { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'NINTENDO', type: 'ride', outdoor: true, duration: 5, wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
-  { id: 'mario_kart', name: '瑪利歐賽車：庫巴的挑戰書', zone: 'NINTENDO', type: 'ride', outdoor: false, duration: 5, wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'medium' },
-  { id: 'yoshi', name: '耀西冒險', zone: 'NINTENDO', type: 'ride', outdoor: true, duration: 5, wait: { holiday: 110, weekend: 80, weekday: 60 }, thrill: 'low' },
-  { id: 'harry_potter_journey', name: '哈利波特禁忌之旅', zone: 'HARRY_POTTER', type: 'ride', outdoor: false, duration: 5, wait: { holiday: 110, weekend: 80, weekday: 45 }, thrill: 'high_motion' },
-  { id: 'hippogriff', name: '鷹馬的飛行', zone: 'HARRY_POTTER', type: 'ride', outdoor: true, duration: 2, wait: { holiday: 110, weekend: 80, weekday: 60 }, thrill: 'medium' },
-  { id: 'flying_dinosaur', name: '飛天翼龍', zone: 'JURASSIC', type: 'ride', outdoor: true, duration: 3, wait: { holiday: 90, weekend: 50, weekday: 30 }, thrill: 'extreme' },
-  { id: 'jurassic_park', name: '侏羅紀公園乘船遊', zone: 'JURASSIC', type: 'ride', outdoor: true, duration: 7, wait: { holiday: 60, weekend: 45, weekday: 30 }, thrill: 'medium_water' },
-  { id: 'minion_mayhem', name: '小小兵瘋狂乘車遊', zone: 'MINION', type: 'ride', outdoor: false, duration: 18, wait: { holiday: 60, weekend: 45, weekday: 30 }, thrill: 'medium_motion' },
-  { id: 'minion_ice', name: '冰凍雷射光乘船遊', zone: 'MINION', type: 'ride', outdoor: false, duration: 5, wait: { holiday: 30, weekend: 25, weekday: 10 }, thrill: 'low' },
-  { id: 'hollywood_dream', name: '好萊塢美夢乘車遊', zone: 'HOLLYWOOD', type: 'ride', outdoor: true, duration: 3, wait: { holiday: 110, weekend: 80, weekday: 45 }, thrill: 'high' },
-  { id: 'hollywood_backdrop', name: '好萊塢美夢乘車遊-逆轉世界', zone: 'HOLLYWOOD', type: 'ride', outdoor: true, duration: 3, wait: { holiday: 110, weekend: 80, weekday: 45 }, thrill: 'high' },
-  { id: 'jaws', name: '大白鯊', zone: 'AMITY', type: 'ride', outdoor: true, duration: 7, wait: { holiday: 50, weekend: 30, weekday: 20 }, thrill: 'low' },
-  { id: 'conan_4d', name: '名偵探柯南 4-D', zone: 'HOLLYWOOD', type: 'show', outdoor: false, duration: 30, wait: { holiday: 30, weekend: 30, weekday: 20 }, thrill: 'low' },
-  { id: 'spy_family', name: 'SPY x FAMILY XR 乘車遊', zone: 'HOLLYWOOD', type: 'ride', outdoor: false, duration: 10, wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'high_vr' },
-  { id: 'space_fantasy', name: '太空幻想列車', zone: 'HOLLYWOOD', type: 'ride', outdoor: false, duration: 10, wait: { holiday: 60, weekend: 45, weekday: 30 }, thrill: 'medium_spin' },
-  { id: 'jujutsu_4d', name: '咒術迴戰 The Real 4-D', zone: 'HOLLYWOOD', type: 'show', outdoor: false, duration: 20, wait: { holiday: 50, weekend: 30, weekday: 20 }, thrill: 'low' },
-  { id: 'waterworld_show', name: '水世界表演', zone: 'WATERWORLD', type: 'show', outdoor: true, duration: 20, wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show' },
+// --- 區域資料 (使用真實 GPS 座標) ---
+// 這些座標是根據您提供的錨點與 Google Maps 數據推算的
+const ZONES_DATA = [
+  { id: 'hollywood', name: '好萊塢區', lat: 34.663620, lng: 135.434522, color: '#fca5a5' }, // 入口附近
+  { id: 'new_york', name: '紐約區', lat: 34.665500, lng: 135.436000, color: '#93c5fd' },
+  { id: 'minion', name: '小小兵樂園', lat: 34.667471, lng: 135.435172, color: '#fde047' }, // 您提供的點 1
+  { id: 'jurassic', name: '侏儸紀公園', lat: 34.668000, lng: 135.433000, color: '#4ade80' },
+  { id: 'waterworld', name: '水世界', lat: 34.668436, lng: 135.431870, color: '#67e8f9' }, // 您提供的點 5
+  { id: 'amity', name: '親善村', lat: 34.666500, lng: 135.431000, color: '#fdba74' },
+  { id: 'harry_potter', name: '哈利波特', lat: 34.665305, lng: 135.429082, color: '#1e293b', textColor: 'white' }, // 您提供的點 4
+  { id: 'nintendo', name: '任天堂世界', lat: 34.670000, lng: 135.432000, color: '#ef4444', textColor: 'white' },
+  { id: 'wonderland', name: '環球奇境', lat: 34.663531, lng: 135.431924, color: '#f9a8d4' }, // 您提供的點 3
 ];
 
+// 將 ZONES_DATA 轉換為物件以便快速查找
+const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
+    acc[zone.id] = zone;
+    return acc;
+}, {});
+
+// 核心遊樂設施 (現在只需關聯 zone id，座標會自動計算)
+const ATTRACTIONS = [
+  { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'nintendo', type: 'ride', wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
+  { id: 'mario_kart', name: '瑪利歐賽車：庫巴的挑戰書', zone: 'nintendo', type: 'ride', wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'medium' },
+  { id: 'yoshi', name: '耀西冒險', zone: 'nintendo', type: 'ride', wait: { holiday: 110, weekend: 80, weekday: 60 }, thrill: 'low' },
+  { id: 'harry_potter_journey', name: '哈利波特禁忌之旅', zone: 'harry_potter', type: 'ride', wait: { holiday: 110, weekend: 80, weekday: 45 }, thrill: 'high_motion' },
+  { id: 'hippogriff', name: '鷹馬的飛行', zone: 'harry_potter', type: 'ride', wait: { holiday: 110, weekend: 80, weekday: 60 }, thrill: 'medium' },
+  { id: 'flying_dinosaur', name: '飛天翼龍', zone: 'jurassic', type: 'ride', wait: { holiday: 90, weekend: 50, weekday: 30 }, thrill: 'extreme' },
+  { id: 'jurassic_park', name: '侏羅紀公園乘船遊', zone: 'jurassic', type: 'ride', wait: { holiday: 60, weekend: 45, weekday: 30 }, thrill: 'medium_water' },
+  { id: 'minion_mayhem', name: '小小兵瘋狂乘車遊', zone: 'minion', type: 'ride', wait: { holiday: 60, weekend: 45, weekday: 30 }, thrill: 'medium_motion' },
+  { id: 'minion_ice', name: '冰凍雷射光乘船遊', zone: 'minion', type: 'ride', wait: { holiday: 30, weekend: 25, weekday: 10 }, thrill: 'low' },
+  { id: 'hollywood_dream', name: '好萊塢美夢乘車遊', zone: 'hollywood', type: 'ride', wait: { holiday: 110, weekend: 80, weekday: 45 }, thrill: 'high' },
+  { id: 'hollywood_backdrop', name: '好萊塢美夢乘車遊-逆轉世界', zone: 'hollywood', type: 'ride', wait: { holiday: 110, weekend: 80, weekday: 45 }, thrill: 'high' },
+  { id: 'jaws', name: '大白鯊', zone: 'amity', type: 'ride', wait: { holiday: 50, weekend: 30, weekday: 20 }, thrill: 'low' },
+  { id: 'conan_4d', name: '名偵探柯南 4-D', zone: 'hollywood', type: 'show', wait: { holiday: 30, weekend: 30, weekday: 20 }, thrill: 'low' },
+  { id: 'spy_family', name: 'SPY x FAMILY XR 乘車遊', zone: 'hollywood', type: 'ride', wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'high_vr' },
+  { id: 'space_fantasy', name: '太空幻想列車', zone: 'hollywood', type: 'ride', wait: { holiday: 60, weekend: 45, weekday: 30 }, thrill: 'medium_spin' },
+  { id: 'jujutsu_4d', name: '咒術迴戰 The Real 4-D', zone: 'hollywood', type: 'show', wait: { holiday: 50, weekend: 30, weekday: 20 }, thrill: 'low' },
+  { id: 'waterworld_show', name: '水世界表演', zone: 'waterworld', type: 'show', wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show' },
+];
+
+// 完整設施清單 (部分範例)
 const FACILITY_DATABASE = [
   {id:1,name:"1UP工廠™",desc:"有許多在別的地方買不到的周邊商品！",type:"shop"},
   {id:12,name:"鷹馬的飛行™",desc:"適合全家人的雲霄飛車。",type:"ride"},
@@ -92,7 +140,7 @@ const EXPRESS_PASS_DEFINITIONS = {
   24: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
   25: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'jujutsu_4d',t:true}, {id:'flying_dinosaur',t:false}],
   26: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_space'}, {id:'jaws',t:false, choice:'or_jurassic'}],
-  27: [{id:'mario_kart',t:true, note:'Play Twice'}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
+  27: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
   28: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}]
 };
 
@@ -337,12 +385,13 @@ export default function USJPlannerApp() {
             (position) => {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
-                const y = ((MAP_CALIBRATION.north - lat) / (MAP_CALIBRATION.north - MAP_CALIBRATION.south)) * 100;
-                const x = ((lng - MAP_CALIBRATION.west) / (MAP_CALIBRATION.east - MAP_CALIBRATION.west)) * 100;
+                // 使用新的投影邏輯
+                const { x, y } = projectGpsToMap(lat, lng);
                 
+                // 限制在 0-100 範圍內，但允許稍微超出以示位置在邊緣
                 setGpsLocation({ 
-                    x: Math.min(Math.max(x, 0), 100), 
-                    y: Math.min(Math.max(y, 0), 100) 
+                    x: Math.min(Math.max(x, -10), 110), 
+                    y: Math.min(Math.max(y, -10), 110) 
                 });
             },
             (error) => {
@@ -399,6 +448,7 @@ export default function USJPlannerApp() {
       }));
   };
 
+  // CRUD Operations
   const handleEditItem = (item) => {
       setEditingItem(item);
       setIsEditModalOpen(true);
@@ -602,7 +652,7 @@ export default function USJPlannerApp() {
                 return {
                     ...item,
                     start: startMins,
-                    zone: ZONES[item.zoneId] || null
+                    zone: ZONES_MAP[item.zoneId] || null // 修正：使用 ZONES_MAP 確保正確對應
                 };
             });
         };
@@ -630,6 +680,8 @@ export default function USJPlannerApp() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
+  // --- Map Interaction Handlers ---
+  
   const handleZoom = (direction) => {
       setViewState(prev => ({
           ...prev,
@@ -1156,22 +1208,28 @@ export default function USJPlannerApp() {
                 {/* Interactive Overlay Layer */}
                 <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none">
                     {/* Zones */}
-                    {Object.values(ZONES).map(zone => (
-                        <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
-                            <circle cx={zone.x} cy={zone.y} r="8" fill={zone.color} opacity="0.6" />
-                            <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
-                                {zone.name.substring(0, 4)}
-                            </text>
-                        </g>
-                    ))}
+                    {Object.values(ZONES).map(zone => {
+                        const { x, y } = projectGpsToMap(zone.lat, zone.lng);
+                        return (
+                            <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
+                                <circle cx={x} cy={y} r="8" fill={zone.color} opacity="0.6" />
+                                <text x={x} y={y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
+                                    {zone.name.substring(0, 4)}
+                                </text>
+                            </g>
+                        );
+                    })}
 
                     {/* Attractions */}
                     {ATTRACTIONS.map(attr => {
-                        const z = ZONES[attr.zone];
+                        const z = ZONES_MAP[attr.zone]; // 使用 ZONES_MAP
+                        if (!z) return null;
+                        
+                        const { x, y } = projectGpsToMap(z.lat, z.lng);
                         const offsetX = (Math.random() - 0.5) * 5;
                         const offsetY = (Math.random() - 0.5) * 5;
                         return (
-                            <circle key={attr.id} cx={z.x + offsetX} cy={z.y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
+                            <circle key={attr.id} cx={x + offsetX} cy={y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
                         );
                     })}
 
@@ -1218,7 +1276,13 @@ export default function USJPlannerApp() {
         {/* Simulated GPS Controls (Only show if Real GPS is OFF) */}
         {!realGpsEnabled && (
             <div className="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-lg pointer-events-auto">
-                <button className="p-2 bg-blue-100 rounded-full text-blue-600 mb-2 block" onClick={() => setGpsLocation({ x: Math.random()*80+10, y: Math.random()*80+10 })}>
+                <button className="p-2 bg-blue-100 rounded-full text-blue-600 mb-2 block" onClick={() => {
+                    // 模擬一個合理的 GPS 位移
+                    const fakeLat = 34.666800 + (Math.random() - 0.5) * 0.005;
+                    const fakeLng = 135.433000 + (Math.random() - 0.5) * 0.005;
+                    const { x, y } = projectGpsToMap(fakeLat, fakeLng);
+                    setGpsLocation({ x, y });
+                }}>
                     <Navigation size={20} />
                 </button>
                 <span className="text-[10px] text-gray-500 block text-center">模擬移動</span>
@@ -1227,7 +1291,7 @@ export default function USJPlannerApp() {
 
         {/* Map Calibration Notice */}
         <div className="absolute top-2 left-2 right-14 bg-white/90 p-2 rounded text-[10px] text-gray-500 shadow-sm pointer-events-none">
-            地圖模式：可自由拖曳與縮放。請上傳正北朝上的 USJ 完整地圖。
+            地圖模式：目前 GPS 校正旋轉 210 度。請上傳對應的 USJ 完整地圖。
         </div>
       </div>
     </div>
