@@ -53,7 +53,7 @@ const ZONES_DATA = [
   { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 50, y: 27, lat: 34.666000, lng: 135.434000, color: '#d1d5db' },
   
   // 右方
-  { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, lat: 34.668000, lng: 135.433000, color: '#4ade80' },
+  { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 75, y: 30, lat: 34.668000, lng: 135.433000, color: '#4ade80' },
   // 右方 (修正：往5點鐘方向)
   { id: 'waterworld', code: 'F', name: 'F 水世界', x: 88, y: 58, lat: 34.668436, lng: 135.431870, color: '#67e8f9' },
   // 右方 (修正：往左下)
