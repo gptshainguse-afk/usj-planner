@@ -6,67 +6,68 @@ const apiKey = ""; // 預覽環境會自動注入 Key
 
 // --- 地圖定位與常數定義 ---
 
-// 1. 地圖參數設定
+// 1. 地圖參數設定 (僅用於計算使用者 GPS 藍點)
 const MAP_SETTINGS = {
-    // 中心點 (大約在園區中央湖泊)
     centerLat: 34.666800,
     centerLng: 135.433000,
-    
-    // 您的地圖旋轉設定：180 + 30 = 210 度
-    // 這代表圖片的「上方」對應真實世界的 210 度方位 (SSW)
-    rotation: 210, 
-    
-    // 縮放比例 (需要根據圖片解析度微調，這裡設定一個通用值)
-    scaleX: 18000, 
-    scaleY: 22000
+    rotation: 285, 
+    scaleX: 16000, 
+    scaleY: 19000
 };
 
 // 2. 輔助函式：將真實 GPS 轉換為地圖上的 % 座標
 const projectGpsToMap = (lat, lng) => {
     const { centerLat, centerLng, rotation, scaleX, scaleY } = MAP_SETTINGS;
     
-    // 1. 計算相對於中心的位移
     const dLat = lat - centerLat;
     const dLng = lng - centerLng;
 
-    // 2. 旋轉變換
     const rad = rotation * (Math.PI / 180);
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
 
-    // 經度修正 (大阪緯度約 34.6度，經度距離需乘 cos(lat) 約 0.82)
     const lngCorrection = 0.82; 
     const xRaw = dLng * lngCorrection;
     const yRaw = dLat;
 
-    // 旋轉公式
     const xRotated = xRaw * cos - yRaw * sin;
     const yRotated = xRaw * sin + yRaw * cos;
 
-    // 3. 映射到螢幕百分比 (中心點為 50%, 50%)
-    // 注意：螢幕 Y 軸向下為正，緯度 Y 軸向上為正，故 Y 需反向
     const xPercent = 50 + (xRotated * scaleX);
     const yPercent = 50 - (yRotated * scaleY);
 
     return { x: xPercent, y: yPercent };
 };
 
-// 3. 區域資料 (使用真實 GPS 座標，對應 A-J 編號)
-// 這些座標來自 Google Maps 真實數據
+// 3. 區域資料 (手動校正座標 x, y)
 const ZONES_DATA = [
-  { id: 'hollywood', code: 'A', name: '好萊塢區域', lat: 34.663620, lng: 135.434522, color: '#fca5a5' },
-  { id: 'new_york', code: 'B', name: '紐約區域', lat: 34.665500, lng: 135.436000, color: '#93c5fd' },
-  { id: 'minion', code: 'C', name: '小小兵樂園', lat: 34.667471, lng: 135.435172, color: '#fde047' },
-  { id: 'san_francisco', code: 'D', name: '舊金山區域', lat: 34.666000, lng: 135.434000, color: '#d1d5db' }, 
-  { id: 'jurassic', code: 'E', name: '侏儸紀公園', lat: 34.668000, lng: 135.433000, color: '#4ade80' },
-  { id: 'waterworld', code: 'F', name: '水世界', lat: 34.668436, lng: 135.431870, color: '#67e8f9' },
-  { id: 'amity', code: 'G', name: '親善村', lat: 34.666500, lng: 135.431000, color: '#fdba74' },
-  { id: 'nintendo', code: 'H', name: '任天堂世界', lat: 34.670000, lng: 135.432000, color: '#ef4444', textColor: 'white' },
-  { id: 'harry_potter', code: 'I', name: '哈利波特', lat: 34.665305, lng: 135.429082, color: '#1e293b', textColor: 'white' },
-  { id: 'wonderland', code: 'J', name: '環球奇境', lat: 34.663531, lng: 135.431924, color: '#f9a8d4' },
+  // 左方
+  { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, lat: 34.663620, lng: 135.434522, color: '#fca5a5' },
+  
+  // 上方 (修正：往左下)
+  { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, lat: 34.665500, lng: 135.436000, color: '#93c5fd' },
+  // 上方 (修正：往左上)
+  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 47, y: 5, lat: 34.667471, lng: 135.435172, color: '#fde047' },
+  
+  // 中間 (修正：往上)
+  { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 50, y: 30, lat: 34.666000, lng: 135.434000, color: '#d1d5db' },
+  
+  // 右方
+  { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, lat: 34.668000, lng: 135.433000, color: '#4ade80' },
+  // 右方 (修正：往5點鐘方向)
+  { id: 'waterworld', code: 'F', name: 'F 水世界', x: 93, y: 58, lat: 34.668436, lng: 135.431870, color: '#67e8f9' },
+  // 右方 (修正：往左下)
+  { id: 'amity', code: 'G', name: 'G 親善村', x: 65, y: 48, lat: 34.666500, lng: 135.431000, color: '#fdba74' },
+  
+  // 下方 (修正：往右)
+  { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 88, y: 85, lat: 34.670000, lng: 135.432000, color: '#ef4444', textColor: 'white' },
+  // 下方 (修正：往右)
+  { id: 'harry_potter', code: 'I', name: 'I 哈利波特', x: 65, y: 85, lat: 34.665305, lng: 135.429082, color: '#1e293b', textColor: 'white' },
+  // 下方 (修正：往2點鐘方向)
+  { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 42, y: 73, lat: 34.663531, lng: 135.431924, color: '#f9a8d4' },
 ];
 
-// 將 ZONES_DATA 轉換為物件以便快速查找
+// 用於快速查找的 Map
 const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
     acc[zone.id] = zone;
     return acc;
@@ -1205,14 +1206,14 @@ export default function USJPlannerApp() {
                 <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none">
                     {/* Zones */}
                     {ZONES_DATA.map(zone => {
-                        const { x, y } = projectGpsToMap(zone.lat, zone.lng);
+                        // 區域使用手動設定的視覺座標
                         return (
                             <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
-                                <circle cx={x} cy={y} r="8" fill={zone.color} opacity="0.6" />
-                                <text x={x} y={y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
+                                <circle cx={zone.x} cy={zone.y} r="8" fill={zone.color} opacity="0.6" />
+                                <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
                                     {zone.name.substring(0, 4)} 
                                 </text>
-                                <text x={x} y={y} dy="-0.8em" textAnchor="middle" fontSize="3" fill="blue" fontWeight="bold">
+                                <text x={zone.x} y={zone.y} dy="-0.8em" textAnchor="middle" fontSize="3" fill="blue" fontWeight="bold">
                                     {zone.code} 
                                 </text>
                             </g>
@@ -1224,15 +1225,15 @@ export default function USJPlannerApp() {
                         const z = ZONES_MAP[attr.zone];
                         if (!z) return null;
                         
-                        const { x, y } = projectGpsToMap(z.lat, z.lng);
+                        // 設施跟隨區域座標 + 隨機偏移
                         const offsetX = (Math.random() - 0.5) * 5;
                         const offsetY = (Math.random() - 0.5) * 5;
                         return (
-                            <circle key={attr.id} cx={x + offsetX} cy={y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
+                            <circle key={attr.id} cx={z.x + offsetX} cy={z.y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
                         );
                     })}
 
-                    {/* User GPS */}
+                    {/* User GPS (Calculated) */}
                     <g transform={`translate(${gpsLocation.x}, ${gpsLocation.y})`}>
                         <circle r="4" fill="#3b82f6" opacity="0.3" className="animate-ping" />
                         <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
@@ -1289,7 +1290,7 @@ export default function USJPlannerApp() {
 
         {/* Map Calibration Notice */}
         <div className="absolute top-2 left-2 right-14 bg-white/90 p-2 rounded text-[10px] text-gray-500 shadow-sm pointer-events-none">
-            地圖模式：目前 GPS 校正旋轉 210 度。請上傳對應的 USJ 完整地圖。
+            地圖模式：目前 GPS 校正旋轉 285 度。請上傳對應的 USJ 完整地圖。
         </div>
       </div>
     </div>
