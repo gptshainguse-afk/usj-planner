@@ -1,24 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
 
-// --- 資料庫與常數定義 ---
+// --- 地圖定位與常數定義 ---
 
-const ZONES = {
-  HOLLYWOOD: { id: 'hollywood', name: '好萊塢區', x: 50, y: 85, color: '#fca5a5' },
-  NEW_YORK: { id: 'new_york', name: '紐約區', x: 65, y: 70, color: '#93c5fd' },
-  MINION: { id: 'minion', name: '小小兵樂園', x: 80, y: 60, color: '#fde047' },
-  JURASSIC: { id: 'jurassic', name: '侏儸紀公園', x: 70, y: 40, color: '#4ade80' },
-  WATERWORLD: { id: 'waterworld', name: '水世界', x: 30, y: 40, color: '#67e8f9' },
-  AMITY: { id: 'amity', name: '親善村 (大白鯊)', x: 45, y: 55, color: '#fdba74' },
-  HARRY_POTTER: { id: 'harry_potter', name: '哈利波特魔法世界', x: 85, y: 20, color: '#1e293b', textColor: 'white' },
-  NINTENDO: { id: 'nintendo', name: '超級任天堂世界', x: 50, y: 15, color: '#ef4444', textColor: 'white' },
-  WONDERLAND: { id: 'wonderland', name: '環球奇境', x: 20, y: 60, color: '#f9a8d4' },
+// 1. 地圖四邊定位設定 (請根據您的圖片實際範圍微調這些經緯度)
+// 這是假設地圖是「正北朝上」的 USJ 園區範圍估算值
+const MAP_CALIBRATION = {
+    north: 34.669800, // 地圖最上緣的緯度 (約略在任天堂世界後方)
+    south: 34.663500, // 地圖最下緣的緯度 (約略在城市大道入口)
+    west: 135.428500, // 地圖最左緣的經度 (約略在港口飯店側)
+    east: 135.438000  // 地圖最右緣的經度 (約略在停車場側)
 };
 
-// 核心遊樂設施
+// 2. 區域座標 (對應地圖圖片的 % 位置，需根據實際底圖微調 x, y)
+const ZONES = {
+  HOLLYWOOD: { id: 'hollywood', name: '好萊塢區', x: 50, y: 80, color: '#fca5a5' },
+  NEW_YORK: { id: 'new_york', name: '紐約區', x: 65, y: 65, color: '#93c5fd' },
+  MINION: { id: 'minion', name: '小小兵樂園', x: 75, y: 55, color: '#fde047' },
+  JURASSIC: { id: 'jurassic', name: '侏儸紀公園', x: 65, y: 40, color: '#4ade80' },
+  WATERWORLD: { id: 'waterworld', name: '水世界', x: 30, y: 35, color: '#67e8f9' },
+  AMITY: { id: 'amity', name: '親善村', x: 45, y: 50, color: '#fdba74' },
+  HARRY_POTTER: { id: 'harry_potter', name: '哈利波特', x: 80, y: 20, color: '#1e293b', textColor: 'white' },
+  NINTENDO: { id: 'nintendo', name: '任天堂世界', x: 45, y: 15, color: '#ef4444', textColor: 'white' },
+  WONDERLAND: { id: 'wonderland', name: '環球奇境', x: 25, y: 55, color: '#f9a8d4' },
+};
+
+// 核心遊樂設施 (用於計算等待時間與快通邏輯)
 const ATTRACTIONS = [
   { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'NINTENDO', type: 'ride', outdoor: true, duration: 5, wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
   { id: 'mario_kart', name: '瑪利歐賽車：庫巴的挑戰書', zone: 'NINTENDO', type: 'ride', outdoor: false, duration: 5, wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'medium' },
@@ -149,14 +159,12 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
     useEffect(() => {
         if (item) {
             setName(item.name || '');
-            // Convert mins to HH:MM
             const h = Math.floor(item.start / 60);
             const m = item.start % 60;
             setStartTime(`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`);
             setDuration(item.duration || 30);
             setNote(item.description || '');
         } else {
-            // Default new item
             setStartTime('12:00');
             setDuration(30);
             setName('');
@@ -176,7 +184,7 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
             duration: parseInt(duration),
             end: startMins + parseInt(duration),
             description: note,
-            type: item?.type || 'misc' // Default type
+            type: item?.type || 'misc' 
         });
         onClose();
     };
@@ -185,12 +193,10 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl w-full max-w-sm p-4 space-y-4 shadow-2xl">
                 <h3 className="font-bold text-lg">{item ? '編輯行程' : '新增行程'}</h3>
-                
                 <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1">名稱</label>
                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full border p-2 rounded" placeholder="例如：逛商店、休息"/>
                 </div>
-
                 <div className="flex gap-4">
                     <div className="flex-1">
                         <label className="block text-xs font-bold text-gray-500 mb-1">開始時間</label>
@@ -201,12 +207,10 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
                         <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full border p-2 rounded"/>
                     </div>
                 </div>
-
                 <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1">備註</label>
                     <textarea value={note} onChange={(e) => setNote(e.target.value)} className="w-full border p-2 rounded h-20 text-sm"/>
                 </div>
-
                 <div className="flex gap-2 pt-2">
                     <button onClick={onClose} className="flex-1 py-2 bg-gray-200 rounded-lg text-sm font-bold">取消</button>
                     <button onClick={handleSave} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">儲存</button>
@@ -277,9 +281,9 @@ export default function USJPlannerApp() {
     }
   });
   
-  // Itinerary is now a single array, sorted by time
   const [itinerary, setItinerary] = useState([]);
-  const [gpsLocation, setGpsLocation] = useState({ x: 50, y: 95 });
+  const [gpsLocation, setGpsLocation] = useState({ x: 50, y: 95 }); // 模擬或真實位置 (0-100%)
+  const [realGpsEnabled, setRealGpsEnabled] = useState(false); // 開關真實 GPS
   const [displayWeather, setDisplayWeather] = useState({ condition: 'sunny', temp: 15, text: '尚未取得天氣資訊' });
 
   // Edit Modal State
@@ -297,6 +301,44 @@ export default function USJPlannerApp() {
   useEffect(() => {
     localStorage.setItem('usj_saved_plans', JSON.stringify(savedPlans));
   }, [savedPlans]);
+
+  // GPS 處理邏輯
+  useEffect(() => {
+    let watchId;
+    if (realGpsEnabled && currentView === 'map') {
+        if (!navigator.geolocation) {
+            alert("您的瀏覽器不支援地理定位");
+            setRealGpsEnabled(false);
+            return;
+        }
+        
+        watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                // 轉換經緯度到地圖百分比
+                // Y: (北緯大 - 當前緯度) / (北緯 - 南緯) * 100
+                const y = ((MAP_CALIBRATION.north - lat) / (MAP_CALIBRATION.north - MAP_CALIBRATION.south)) * 100;
+                // X: (當前經度 - 西經) / (東經 - 西經) * 100
+                const x = ((lng - MAP_CALIBRATION.west) / (MAP_CALIBRATION.east - MAP_CALIBRATION.west)) * 100;
+                
+                // 限制在 0-100 範圍內，避免跑出地圖
+                setGpsLocation({ 
+                    x: Math.min(Math.max(x, 0), 100), 
+                    y: Math.min(Math.max(y, 0), 100) 
+                });
+            },
+            (error) => {
+                console.error("GPS Error:", error);
+                // 錯誤處理 (例如在室內無訊號)
+            },
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        );
+    }
+    return () => {
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [realGpsEnabled, currentView]);
 
   const handleInputChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
   
@@ -348,20 +390,17 @@ export default function USJPlannerApp() {
   };
 
   const handleAddItem = () => {
-      setEditingItem(null); // Null means new
+      setEditingItem(null); 
       setIsEditModalOpen(true);
   };
 
   const handleSaveItem = (newItem) => {
       let newItinerary;
       if (editingItem) {
-          // Update existing
           newItinerary = itinerary.map(i => i === editingItem ? newItem : i);
       } else {
-          // Add new
           newItinerary = [...itinerary, newItem];
       }
-      // Sort by start time
       newItinerary.sort((a, b) => a.start - b.start);
       setItinerary(newItinerary);
   };
@@ -388,7 +427,6 @@ export default function USJPlannerApp() {
 
   const loadPlan = (plan) => {
     setFormData(plan.formData);
-    // Backward compatibility or standard loading
     let items = Array.isArray(plan.itinerary) ? plan.itinerary : (plan.itineraryMap?.sunny || []);
     setItinerary(items);
     setDisplayWeather(plan.weather || { condition: 'sunny', temp: 15 });
@@ -519,7 +557,7 @@ export default function USJPlannerApp() {
         請務必先搜尋 ${formData.date} 的官方營業時間、天氣與運休設施。
         JSON回應必須包含 weatherSummary 和 itinerary。`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${activeKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -940,100 +978,78 @@ export default function USJPlannerApp() {
     </div>
   )};
 
-  const renderSavedPlans = () => (
-    <div className="pb-20 h-full bg-gray-50">
-        <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center sticky top-0">
-            <h2 className="font-bold flex items-center gap-2"><FolderOpen size={20}/> 我的行程 ({savedPlans.length})</h2>
-            <button onClick={() => setCurrentView('home')} className="text-blue-600 text-sm font-bold">建立新行程</button>
-        </div>
-
-        <div className="p-4 space-y-4">
-            {savedPlans.length === 0 ? (
-                <div className="text-center text-gray-400 py-10 flex flex-col items-center gap-2">
-                    <FolderOpen size={40} className="opacity-20"/>
-                    <p>目前沒有儲存的行程</p>
-                    <button onClick={() => setCurrentView('home')} className="text-blue-500 underline text-sm">去規劃一個吧！</button>
-                </div>
-            ) : (
-                savedPlans.map(plan => (
-                    <div key={plan.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h3 className="font-bold text-gray-800">{plan.name}</h3>
-                                <p className="text-xs text-gray-500 flex items-center gap-1"><Calendar size={12}/> {plan.formData.date}</p>
-                            </div>
-                            <span className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500">{plan.timestamp}</span>
-                        </div>
-                        
-                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded flex flex-wrap gap-2">
-                            {plan.formData.hasExpress ? 
-                                <span className="text-yellow-600 bg-yellow-50 px-1 rounded border border-yellow-100">含 {plan.formData.expressPasses?.length || 1} 張快通</span> : 
-                                <span className="text-gray-500">一般門票</span>
-                            }
-                            <span className="flex items-center gap-1">
-                                {plan.formData.preferenceMode === 'gentle' ? <Coffee size={10}/> : 
-                                 plan.formData.preferenceMode === 'family' ? <Baby size={10}/> : <Zap size={10}/>}
-                                {plan.formData.preferenceMode === 'gentle' ? '怕暈' : 
-                                 plan.formData.preferenceMode === 'family' ? '親子' : '刺激'}
-                            </span>
-                        </div>
-
-                        <div className="flex gap-2 mt-2 pt-2 border-t border-gray-50">
-                            <button 
-                                onClick={() => loadPlan(plan)}
-                                className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                            >
-                                <ArrowRight size={16}/> 載入此行程
-                            </button>
-                            <button 
-                                onClick={() => deletePlan(plan.id)}
-                                className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100 active:scale-95 transition-transform"
-                            >
-                                <Trash2 size={18}/>
-                            </button>
-                        </div>
-                    </div>
-                ))
-            )}
-        </div>
-    </div>
-  );
-
   const renderMap = () => (
     <div className="h-full flex flex-col bg-gray-100">
        <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center">
         <h2 className="font-bold flex items-center gap-2"><MapIcon size={20}/> 園區導航</h2>
-        <button onClick={() => setCurrentView('plan')} className="text-blue-600 text-sm font-bold">返回列表</button>
+        <div className="flex gap-2">
+            <button 
+                onClick={() => setRealGpsEnabled(!realGpsEnabled)}
+                className={`p-2 rounded-full transition-colors flex items-center gap-1 ${realGpsEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}
+            >
+                <Locate size={16}/> {realGpsEnabled ? 'GPS 開啟' : '模擬定位'}
+            </button>
+            <button onClick={() => setCurrentView('plan')} className="text-blue-600 text-sm font-bold">返回列表</button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-hidden relative bg-[#e0f2fe]">
-        <svg viewBox="0 0 100 100" className="w-full h-full">
+        {/* Map Image Layer */}
+        <div className="absolute inset-0">
+            {/* Placeholder for the map image. User needs to add 'usj_map.jpg' to public folder */}
+            <img 
+                src="https://www.usj.co.jp/web/d_common/img/usj-map-guide-studio-thumb.jpg" 
+                alt="USJ Map" 
+                className="w-full h-full object-cover opacity-50"
+                onError={(e) => {
+                    e.target.style.display='none'; // Hide if not found, show SVG bg
+                }}
+            />
+            {/* Instructions for user (hidden in production ideally) */}
+            <div className="absolute bottom-2 right-2 text-[10px] text-gray-400 bg-white/80 p-1 rounded">
+                請將地圖存為 public/usj_map.jpg
+            </div>
+        </div>
+
+        {/* Interactive Overlay Layer */}
+        <svg viewBox="0 0 100 100" className="w-full h-full absolute inset-0 pointer-events-none">
+            {/* Zones - Interactive Click Areas */}
             {Object.values(ZONES).map(zone => (
-                <g key={zone.id}>
-                    <circle cx={zone.x} cy={zone.y} r="12" fill={zone.color} opacity="0.8" />
-                    <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill={zone.textColor || '#333'} fontWeight="bold">
+                <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
+                    <circle cx={zone.x} cy={zone.y} r="8" fill={zone.color} opacity="0.6" />
+                    <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
                         {zone.name.substring(0, 4)}
                     </text>
                 </g>
             ))}
+
+            {/* Attractions Points */}
             {ATTRACTIONS.map(attr => {
                 const z = ZONES[attr.zone];
-                const offsetX = (Math.random() - 0.5) * 10;
-                const offsetY = (Math.random() - 0.5) * 10;
-                return <circle key={attr.id} cx={z.x + offsetX} cy={z.y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />;
+                // Simple static offset for demo. Real app needs precise coords.
+                const offsetX = (Math.random() - 0.5) * 5;
+                const offsetY = (Math.random() - 0.5) * 5;
+                return (
+                    <circle key={attr.id} cx={z.x + offsetX} cy={z.y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
+                );
             })}
+
+            {/* User GPS Location Marker */}
             <g transform={`translate(${gpsLocation.x}, ${gpsLocation.y})`}>
-                <circle r="3" fill="#3b82f6" className="animate-pulse" />
-                <circle r="1" fill="white" />
+                <circle r="4" fill="#3b82f6" opacity="0.3" className="animate-ping" />
+                <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
             </g>
         </svg>
         
-        <div className="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-lg">
-            <button className="p-2 bg-blue-100 rounded-full text-blue-600 mb-2 block" onClick={() => setGpsLocation({ x: Math.random()*80+10, y: Math.random()*80+10 })}>
-                <Navigation size={20} />
-            </button>
-            <span className="text-[10px] text-gray-500 block text-center">模擬定位</span>
-        </div>
+        {/* Simulated GPS Controls (Only show if Real GPS is OFF) */}
+        {!realGpsEnabled && (
+            <div className="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-lg pointer-events-auto">
+                <button className="p-2 bg-blue-100 rounded-full text-blue-600 mb-2 block" onClick={() => setGpsLocation({ x: Math.random()*80+10, y: Math.random()*80+10 })}>
+                    <Navigation size={20} />
+                </button>
+                <span className="text-[10px] text-gray-500 block text-center">模擬移動</span>
+            </div>
+        )}
       </div>
     </div>
   );
