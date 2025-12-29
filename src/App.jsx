@@ -7,12 +7,11 @@ const apiKey = ""; // 預覽環境會自動注入 Key
 // --- 地圖定位與常數定義 ---
 
 // 1. 地圖四邊定位設定 (請根據您的圖片實際範圍微調這些經緯度)
-// 這是假設地圖是「正北朝上」的 USJ 園區範圍估算值
 const MAP_CALIBRATION = {
-    north: 34.669800, // 地圖最上緣的緯度 (約略在任天堂世界後方)
-    south: 34.663500, // 地圖最下緣的緯度 (約略在城市大道入口)
-    west: 135.428500, // 地圖最左緣的經度 (約略在港口飯店側)
-    east: 135.438000  // 地圖最右緣的經度 (約略在停車場側)
+    north: 34.669800, // 地圖最上緣的緯度
+    south: 34.663500, // 地圖最下緣的緯度
+    west: 135.428500, // 地圖最左緣的經度
+    east: 135.438000  // 地圖最右緣的經度
 };
 
 // 2. 區域座標 (對應地圖圖片的 % 位置，需根據實際底圖微調 x, y)
@@ -97,7 +96,7 @@ const EXPRESS_PASS_DEFINITIONS = {
   24: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
   25: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'jujutsu_4d',t:true}, {id:'flying_dinosaur',t:false}],
   26: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_space'}, {id:'jaws',t:false, choice:'or_jurassic'}],
-  27: [{id:'mario_kart',t:true, note:'Play Twice'}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
+  27: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
   28: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}]
 };
 
@@ -786,278 +785,62 @@ export default function USJPlannerApp() {
     </div>
   )};
 
-  const renderHome = () => (
-    <div className="space-y-6 pb-20">
-      <div className="bg-gradient-to-br from-blue-700 to-blue-500 text-white p-6 rounded-b-3xl shadow-lg relative overflow-hidden">
-        <Sparkles className="absolute top-4 right-4 text-yellow-300 opacity-50" size={48} />
-        <h1 className="text-2xl font-bold mb-2 flex items-center gap-2">USJ AI 路線規劃 <span className="text-xs bg-yellow-400 text-blue-800 px-2 py-0.5 rounded-full">Gemini</span></h1>
-        <p className="opacity-90 text-sm">輸入您的需求，AI 為您客製化最佳攻略</p>
-      </div>
-
-      <div className="px-4 space-y-4">
-        {/* API Key */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-100">
-           <label className="block text-sm font-bold text-blue-800 mb-2 flex items-center gap-2">
-             <Key size={16} /> Gemini API Key (選填)
-           </label>
-           <input 
-             type="password" 
-             placeholder="若無環境變數，請輸入您的 Key (自動儲存)"
-             value={userApiKey}
-             onChange={(e) => setUserApiKey(e.target.value)}
-             className="w-full p-2 border rounded-lg text-sm bg-blue-50 focus:ring-2 focus:ring-blue-500 outline-none"
-           />
-           <div className="mt-2 flex items-start gap-2 text-[10px] text-blue-700 bg-blue-50 p-2 rounded">
-             <Globe size={12} className="mt-0.5"/>
-             <p>已啟用 Google Search Grounding：AI 將自動搜尋當日官方時間表與人數預測網站。</p>
-           </div>
+  const renderSavedPlans = () => (
+    <div className="pb-20 h-full bg-gray-50">
+        <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center sticky top-0">
+            <h2 className="font-bold flex items-center gap-2"><FolderOpen size={20}/> 我的行程 ({savedPlans.length})</h2>
+            <button onClick={() => setCurrentView('home')} className="text-blue-600 text-sm font-bold">建立新行程</button>
         </div>
 
-        {/* Date */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-            <Calendar size={18} /> 入園日期
-          </label>
-          <input 
-            type="date" 
-            value={formData.date}
-            onChange={(e) => handleInputChange('date', e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
-
-        {/* Preference Mode (NEW) */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-            <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                <HeartPulse size={18} /> 設施安排取向
-            </label>
-            <div className="grid grid-cols-1 gap-2">
-                <button
-                    onClick={() => handleInputChange('preferenceMode', 'thrill')}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                        formData.preferenceMode === 'thrill' 
-                        ? 'border-red-500 bg-red-50 text-red-700' 
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                >
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.preferenceMode === 'thrill' ? 'border-red-500' : 'border-gray-300'}`}>
-                        {formData.preferenceMode === 'thrill' && <div className="w-2 h-2 rounded-full bg-red-500"></div>}
-                    </div>
-                    <div className="text-left">
-                        <div className="text-sm font-bold flex items-center gap-2"><Zap size={14}/> 不怕暈要刺激 (Thrill)</div>
-                        <div className="text-[10px] opacity-70">飛天翼龍、好萊塢美夢、禁忌之旅優先</div>
-                    </div>
-                </button>
-
-                <button
-                    onClick={() => handleInputChange('preferenceMode', 'gentle')}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                        formData.preferenceMode === 'gentle' 
-                        ? 'border-green-500 bg-green-50 text-green-700' 
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                >
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.preferenceMode === 'gentle' ? 'border-green-500' : 'border-gray-300'}`}>
-                        {formData.preferenceMode === 'gentle' && <div className="w-2 h-2 rounded-full bg-green-500"></div>}
-                    </div>
-                    <div className="text-left">
-                        <div className="text-sm font-bold flex items-center gap-2"><Coffee size={14}/> 怕暈別太刺激 (Gentle)</div>
-                        <div className="text-[10px] opacity-70">避開旋轉/3D暈，享受表演與氣氛</div>
-                    </div>
-                </button>
-
-                <button
-                    onClick={() => handleInputChange('preferenceMode', 'family')}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                        formData.preferenceMode === 'family' 
-                        ? 'border-orange-500 bg-orange-50 text-orange-700' 
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                >
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.preferenceMode === 'family' ? 'border-orange-500' : 'border-gray-300'}`}>
-                        {formData.preferenceMode === 'family' && <div className="w-2 h-2 rounded-full bg-orange-500"></div>}
-                    </div>
-                    <div className="text-left">
-                        <div className="text-sm font-bold flex items-center gap-2"><Baby size={14}/> 親子路線 (Family)</div>
-                        <div className="text-[10px] opacity-70">環球奇境、小小兵、遊行優先</div>
-                    </div>
-                </button>
-            </div>
-        </div>
-
-        {/* Express Pass Section */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <label className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-              <Clock size={18} /> 快速通關券 (Express Pass)
-            </span>
-            <input 
-              type="checkbox" 
-              checked={formData.hasExpress}
-              onChange={(e) => handleInputChange('hasExpress', e.target.checked)}
-              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-            />
-          </label>
-          
-          {formData.hasExpress && (
-            <div className="mt-3 space-y-4 animate-fade-in">
-              {formData.expressPasses.map((pass, index) => (
-                  <div key={pass.id} className="p-3 border rounded-lg bg-gray-50 relative group">
-                      <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
-                              第 {index + 1} 張快通
-                          </span>
-                          <button 
-                            onClick={() => removeExpressPass(pass.id)}
-                            className="text-gray-400 hover:text-red-500 p-1"
-                            title="刪除此張快通"
-                          >
-                              <Trash2 size={16}/>
-                          </button>
-                      </div>
-
-                      <select 
-                        value={pass.name}
-                        onChange={(e) => updateExpressPassName(pass.id, e.target.value)}
-                        className="w-full p-2 text-sm border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 mb-3"
-                      >
-                        <option value="">-- 請選擇快通版本 --</option>
-                        {EXPRESS_PASS_RAW.map((p, idx) => (
-                          <option key={idx} value={p}>{p.split('-')[1] || p}</option>
-                        ))}
-                      </select>
-
-                      {/* Time Inputs for this pass */}
-                      {pass.name && (
-                        <div className="pl-2 border-l-2 border-blue-200 space-y-2">
-                          {getExpressPassContent(pass.name).filter(i => i.timed).map(item => {
-                            const attr = ATTRACTIONS.find(a => a.id === item.id);
-                            return (
-                              <div key={item.id} className="flex items-center justify-between">
-                                <span className="text-xs text-gray-700 font-medium">
-                                  {attr?.name}
-                                  {item.choice && <span className="text-blue-500 ml-1">*</span>}
-                                </span>
-                                <input 
-                                  type="time"
-                                  value={pass.times[item.id] || ''}
-                                  onChange={(e) => updateExpressPassTime(pass.id, item.id, e.target.value)}
-                                  className="text-xs p-1.5 border rounded bg-white focus:ring-2 focus:ring-blue-200 outline-none w-24"
-                                />
-                              </div>
-                            );
-                          })}
-                          {getExpressPassContent(pass.name).filter(i => i.timed).length === 0 && (
-                              <p className="text-[10px] text-gray-500 italic">此票券無須指定場次</p>
-                          )}
+        <div className="p-4 space-y-4">
+            {savedPlans.length === 0 ? (
+                <div className="text-center text-gray-400 py-10 flex flex-col items-center gap-2">
+                    <FolderOpen size={40} className="opacity-20"/>
+                    <p>目前沒有儲存的行程</p>
+                    <button onClick={() => setCurrentView('home')} className="text-blue-500 underline text-sm">去規劃一個吧！</button>
+                </div>
+            ) : (
+                savedPlans.map(plan => (
+                    <div key={plan.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h3 className="font-bold text-gray-800">{plan.name}</h3>
+                                <p className="text-xs text-gray-500 flex items-center gap-1"><Calendar size={12}/> {plan.formData.date}</p>
+                            </div>
+                            <span className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500">{plan.timestamp}</span>
                         </div>
-                      )}
-                  </div>
-              ))}
+                        
+                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded flex flex-wrap gap-2">
+                            {plan.formData.hasExpress ? 
+                                <span className="text-yellow-600 bg-yellow-50 px-1 rounded border border-yellow-100">含 {plan.formData.expressPasses?.length || 1} 張快通</span> : 
+                                <span className="text-gray-500">一般門票</span>
+                            }
+                            <span className="flex items-center gap-1">
+                                {plan.formData.preferenceMode === 'gentle' ? <Coffee size={10}/> : 
+                                 plan.formData.preferenceMode === 'family' ? <Baby size={10}/> : <Zap size={10}/>}
+                                {plan.formData.preferenceMode === 'gentle' ? '怕暈' : 
+                                 plan.formData.preferenceMode === 'family' ? '親子' : '刺激'}
+                            </span>
+                        </div>
 
-              <button 
-                onClick={addExpressPass}
-                className="w-full py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-50 transition-colors"
-              >
-                <PlusCircle size={16}/> 新增另一張快速通關券
-              </button>
-            </div>
-          )}
+                        <div className="flex gap-2 mt-2 pt-2 border-t border-gray-50">
+                            <button 
+                                onClick={() => loadPlan(plan)}
+                                className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                            >
+                                <ArrowRight size={16}/> 載入此行程
+                            </button>
+                            <button 
+                                onClick={() => deletePlan(plan.id)}
+                                className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100 active:scale-95 transition-transform"
+                            >
+                                <Trash2 size={18}/>
+                            </button>
+                        </div>
+                    </div>
+                ))
+            )}
         </div>
-
-        {/* Other Options */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
-           {!formData.hasExpress && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">任天堂整理券預計時段</label>
-              <select 
-                value={formData.nintendoEntryTime}
-                onChange={(e) => handleInputChange('nintendoEntryTime', e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm"
-              >
-                <option value="morning">早上 (09:00 - 12:00)</option>
-                <option value="afternoon">下午 (13:00 - 16:00)</option>
-                <option value="evening">晚上 (17:00 後)</option>
-              </select>
-            </div>
-          )}
-           
-           <div className="border-t pt-2 mt-2">
-              <label className="flex items-center gap-2 mb-2">
-                 <input type="checkbox" checked={formData.hasJCB} onChange={(e) => handleInputChange('hasJCB', e.target.checked)} className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
-                 <span className="text-sm font-medium text-gray-700 flex items-center gap-1"><CreditCard size={16}/> 持有 JCB 極致卡 (飛天翼龍 VIP)</span>
-              </label>
-              
-              {formData.hasJCB && (
-                  <div className="bg-blue-50 p-3 rounded-lg ml-6 space-y-2 animate-fade-in border border-blue-100">
-                      <p className="text-xs text-blue-800 leading-relaxed">
-                          <span className="font-bold">✨ VIP 禮遇內容：</span><br/>
-                          1. VIP 室休息 20 分鐘<br/>
-                          2. 飛天翼龍快速通關 (免排隊)<br/>
-                          3. 每次最多 4 名
-                      </p>
-                      <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">預約時間：</span>
-                          <input 
-                              type="time"
-                              value={formData.jcbTime || ''}
-                              onChange={(e) => handleInputChange('jcbTime', e.target.value)}
-                              className="text-xs p-1.5 border rounded bg-white focus:ring-2 focus:ring-blue-200 outline-none"
-                          />
-                      </div>
-                  </div>
-              )}
-           </div>
-
-           <label className="flex items-center gap-2">
-             <input type="checkbox" checked={formData.planShopping} onChange={(e) => handleInputChange('planShopping', e.target.checked)} />
-             <span className="text-sm">特地規劃購物行程 (若無則塞滿設施)</span>
-           </label>
-
-           <label className="flex items-center gap-2">
-             <input type="checkbox" checked={formData.needsTaxRefund} onChange={(e) => handleInputChange('needsTaxRefund', e.target.checked)} />
-             <span className="text-sm">需要退稅 (預留 1 小時)</span>
-          </label>
-          <label className="flex items-center gap-2">
-             <input type="checkbox" checked={formData.needsFood} onChange={(e) => handleInputChange('needsFood', e.target.checked)} />
-             <span className="text-sm">包含餐廳推薦</span>
-          </label>
-          <div className="pt-2 border-t mt-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">特別要求</label>
-            <textarea 
-              value={formData.specialRequest}
-              onChange={(e) => handleInputChange('specialRequest', e.target.value)}
-              placeholder="例如：我不喜歡太刺激的設施、想看遊行..."
-              className="w-full p-2 text-sm border rounded-lg h-20"
-            />
-          </div>
-        </div>
-
-        {errorMsg && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2">
-                <AlertCircle size={16}/> {errorMsg}
-            </div>
-        )}
-
-        <button 
-          onClick={callGeminiAPI}
-          disabled={isGenerating}
-          className={`w-full py-4 rounded-xl font-bold shadow-lg text-white transition-all flex justify-center items-center gap-2 ${
-              isGenerating ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 active:scale-95'
-          }`}
-        >
-          {isGenerating ? (
-              <>
-                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                AI 正在規劃...
-              </>
-          ) : (
-              <>
-                <Sparkles size={20}/> 開始 AI 智能規劃
-              </>
-          )}
-        </button>
-      </div>
     </div>
   );
 
@@ -1077,7 +860,7 @@ export default function USJPlannerApp() {
       </div>
 
       <div 
-        className="flex-1 overflow-hidden relative bg-[#e0f2fe]"
+        className="flex-1 overflow-hidden relative bg-[#e0f2fe] flex items-center justify-center"
         ref={mapContainerRef}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
@@ -1091,60 +874,56 @@ export default function USJPlannerApp() {
         <div 
             style={{ 
                 transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})`,
-                transformOrigin: '0 0',
+                transformOrigin: 'center',
                 transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-                width: '100%',
-                height: '100%',
-                position: 'absolute',
-                top: 0,
-                left: 0
+                display: 'inline-block' // 重要：讓 div 寬高由內容（圖片）決定
             }}
         >
-            {/* Map Image Layer */}
-            <div className="absolute inset-0 w-full h-full">
+            {/* Content Wrapper - Image + SVG */}
+            <div className="relative shadow-2xl bg-white">
                 {mapImage ? (
                     <img 
                         src={mapImage} 
                         alt="Uploaded Map" 
-                        className="w-full h-full object-cover"
+                        style={{ display: 'block', maxWidth: 'none', maxHeight: 'none' }} // 解除 max 限制
                         draggable={false}
                     />
                 ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-100">
+                    <div className="w-80 h-80 flex flex-col items-center justify-center text-gray-400 bg-gray-100">
                         <MapIcon size={48} className="mb-2 opacity-20"/>
-                        <p className="text-xs">尚未上傳地圖</p>
+                        <p className="text-xs">請點擊右下角上傳地圖圖片</p>
                     </div>
                 )}
-            </div>
 
-            {/* Interactive Overlay Layer */}
-            <svg viewBox="0 0 100 100" className="w-full h-full absolute inset-0 pointer-events-none">
-                {/* Zones - Interactive Click Areas */}
-                {Object.values(ZONES).map(zone => (
-                    <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
-                        <circle cx={zone.x} cy={zone.y} r="8" fill={zone.color} opacity="0.6" />
-                        <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
-                            {zone.name.substring(0, 4)}
-                        </text>
+                {/* Interactive Overlay Layer */}
+                <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none">
+                    {/* Zones */}
+                    {Object.values(ZONES).map(zone => (
+                        <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
+                            <circle cx={zone.x} cy={zone.y} r="8" fill={zone.color} opacity="0.6" />
+                            <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
+                                {zone.name.substring(0, 4)}
+                            </text>
+                        </g>
+                    ))}
+
+                    {/* Attractions */}
+                    {ATTRACTIONS.map(attr => {
+                        const z = ZONES[attr.zone];
+                        const offsetX = (Math.random() - 0.5) * 5;
+                        const offsetY = (Math.random() - 0.5) * 5;
+                        return (
+                            <circle key={attr.id} cx={z.x + offsetX} cy={z.y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
+                        );
+                    })}
+
+                    {/* User GPS */}
+                    <g transform={`translate(${gpsLocation.x}, ${gpsLocation.y})`}>
+                        <circle r="4" fill="#3b82f6" opacity="0.3" className="animate-ping" />
+                        <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
                     </g>
-                ))}
-
-                {/* Attractions Points */}
-                {ATTRACTIONS.map(attr => {
-                    const z = ZONES[attr.zone];
-                    const offsetX = (Math.random() - 0.5) * 5;
-                    const offsetY = (Math.random() - 0.5) * 5;
-                    return (
-                        <circle key={attr.id} cx={z.x + offsetX} cy={z.y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
-                    );
-                })}
-
-                {/* User GPS Location Marker */}
-                <g transform={`translate(${gpsLocation.x}, ${gpsLocation.y})`}>
-                    <circle r="4" fill="#3b82f6" opacity="0.3" className="animate-ping" />
-                    <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
-                </g>
-            </svg>
+                </svg>
+            </div>
         </div>
         
         {/* Map Controls */}
@@ -1190,7 +969,7 @@ export default function USJPlannerApp() {
 
         {/* Map Calibration Notice */}
         <div className="absolute top-2 left-2 right-14 bg-white/90 p-2 rounded text-[10px] text-gray-500 shadow-sm pointer-events-none">
-            地圖定位模式：請確保上傳的是正北朝上的 USJ 完整園區地圖。
+            地圖模式：可自由拖曳與縮放。請上傳正北朝上的 USJ 完整地圖。
         </div>
       </div>
     </div>
