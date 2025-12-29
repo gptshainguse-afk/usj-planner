@@ -50,12 +50,12 @@ const ZONES_DATA = [
   { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 47, y: 5, lat: 34.667471, lng: 135.435172, color: '#fde047' },
   
   // 中間 (修正：往上)
-  { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 50, y: 30, lat: 34.666000, lng: 135.434000, color: '#d1d5db' },
+  { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 50, y: 27, lat: 34.666000, lng: 135.434000, color: '#d1d5db' },
   
   // 右方
   { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, lat: 34.668000, lng: 135.433000, color: '#4ade80' },
   // 右方 (修正：往5點鐘方向)
-  { id: 'waterworld', code: 'F', name: 'F 水世界', x: 93, y: 58, lat: 34.668436, lng: 135.431870, color: '#67e8f9' },
+  { id: 'waterworld', code: 'F', name: 'F 水世界', x: 88, y: 58, lat: 34.668436, lng: 135.431870, color: '#67e8f9' },
   // 右方 (修正：往左下)
   { id: 'amity', code: 'G', name: 'G 親善村', x: 65, y: 48, lat: 34.666500, lng: 135.431000, color: '#fdba74' },
   
@@ -64,7 +64,7 @@ const ZONES_DATA = [
   // 下方 (修正：往右)
   { id: 'harry_potter', code: 'I', name: 'I 哈利波特', x: 65, y: 85, lat: 34.665305, lng: 135.429082, color: '#1e293b', textColor: 'white' },
   // 下方 (修正：往2點鐘方向)
-  { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 42, y: 73, lat: 34.663531, lng: 135.431924, color: '#f9a8d4' },
+  { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 45, y: 73, lat: 34.663531, lng: 135.431924, color: '#f9a8d4' },
 ];
 
 // 用於快速查找的 Map
