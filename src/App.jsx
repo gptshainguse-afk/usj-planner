@@ -11,7 +11,7 @@ const FIXED_MAP_SRC = "/usj_map.jpg"; // 請確保 public 資料夾有此圖片
 const ZONES_DATA = [
   { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, color: '#fca5a5' },
   { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, color: '#93c5fd' },
-  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 45.3, y: 17.2, color: '#fde047' },
+  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 45.6, y: 8.1, color: '#fde047' },
   { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 49.8, y: 34.4, color: '#d1d5db' },
   { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, color: '#4ade80' },
   { id: 'waterworld', code: 'F', name: 'F 水世界', x: 84.6, y: 74.1, color: '#67e8f9' },
