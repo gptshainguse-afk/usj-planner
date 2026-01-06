@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, ZoomIn, ZoomOut, Maximize, MapPin, Copy } from 'lucide-react';
+import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, ZoomIn, ZoomOut, Maximize, MapPin, Copy, RotateCcw, Sliders, Image as ImageIcon } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
@@ -127,163 +127,22 @@ const ATTRACTIONS = [
 
 const FACILITY_DATABASE = [
   {id:1,name:"1UP工廠™",desc:"有許多在別的地方買不到的周邊商品！",type:"shop"},
-  {id:2,name:"4-D電影商品屋",desc:"想找期間限定的活動周邊商品，就在這裡！",type:"shop"},
-  {id:3,name:"25週年「Discover U!!!」",desc:"日本環球影城25週年活動。",type:"event"},
-  {id:4,name:"艾比的魔法派對",desc:"艾比施展魔法的大廳裡，有巨大星星的積木或球。",type:"play_area"},
-  {id:5,name:"艾比的魔法樹",desc:"往大樹裡面一看，裡面展現的是非常有趣的攀登架！",type:"play_area"},
-  {id:6,name:"艾蒙的GO-GO滑板",desc:"和艾蒙一起乘坐滑板，痛快地在斜坡上奔馳！",type:"ride"},
-  {id:7,name:"艾蒙的泡泡遨遊",desc:"騎上寵物金魚，在充滿肥皂泡泡的河裡，悠閒地進行水上散步。",type:"ride"},
-  {id:8,name:"艾蒙的小兜風",desc:"如果是這個賽車場，即使是3歲的小朋友，也能駕駛得有模有樣。",type:"ride"},
-  {id:9,name:"奧利凡德的商店™",desc:"體驗「魔杖選擇巫師」的經典場景。",type:"shop_experience"},
-  {id:10,name:"海格的小屋™",desc:"真實再現了海格的家。",type:"photo_spot"},
-  {id:11,name:"青蛙慶典",desc:"伴隨著好聽的歌曲，青蛙們展現美妙的合聲。",type:"show"},
-  {id:12,name:"鷹馬的飛行™",desc:"與魔法世界的生物鹰馬一同翱翔天空，適合全家人的雲霄飛車。",type:"ride"},
-  {id:13,name:"活米村車站™",desc:"霍格華茲特快車的發車站。",type:"photo_spot"},
+  {id:12,name:"鷹馬的飛行™",desc:"適合全家人的雲霄飛車。",type:"ride"},
   {id:14,name:"三根掃帚™",desc:"活米村的老字號酒館。",type:"restaurant"},
-  {id:15,name:"豬頭酒吧",desc:"散發著詭異氛圍的酒吧，就在「三根掃帚」隔壁。",type:"restaurant"},
-  {id:16,name:"蜂蜜公爵™",desc:"霍格華茲魔法與巫術學院的學生們最喜歡的糖果店。",type:"shop"},
-  {id:17,name:"貓頭鷹郵局™ & 貓頭鷹屋",desc:"除了有販賣活米村的郵票與文具外，還能由這裡寄信。",type:"shop"},
-  {id:18,name:"桑科™的「惡作劇商品店」",desc:"惡作劇商品店。",type:"shop"},
-  {id:19,name:"德維與班吉™",desc:"活米村的魔法道具店。",type:"shop"},
-  {id:20,name:"費爾奇沒收品百貨店™",desc:"霍格華茲魔法與巫術學院的管理員飛七從違反校規的學生們沒收來的寶物。",type:"shop"},
-  {id:21,name:"高級巫師服飾店",desc:"在這裡可以買到霍格華茲魔法與巫術學院的長袍及領帶等。",type:"shop"},
+  {id:16,name:"蜂蜜公爵™",desc:"糖果店。",type:"shop"},
   {id:22,name:"飛天翼龍",desc:"世界最長×世界最大高低差的最新型雲霄飛車。",type:"ride"},
-  {id:23,name:"侏羅紀公園・乘船遊™",desc:"為了探尋恐龍，在熱帶雨林進行探險。",type:"ride"},
-  {id:24,name:"新發現餐廳™",desc:"這是在電影《侏羅紀公園》中登場的遊客中心。",type:"restaurant"},
-  {id:25,name:"失落的世界餐廳™",desc:"位於叢林中被秘密覆蓋的餐廳。",type:"restaurant"},
-  {id:26,name:"侏羅紀專賣店™",desc:"能滿足粉絲的各種周邊商品，種類豐富。",type:"shop"},
-  {id:27,name:"小小兵瘋狂乘車遊",desc:"搭乘特製飛車，進入格魯的實驗室。",type:"ride"},
-  {id:28,name:"冰凍雷射光乘船遊",desc:"搭乘格魯發明的飛車，在冰上滑行！",type:"ride"},
-  {id:29,name:"美味我也要！小小兵餅乾店",desc:"製作小小兵最愛的夾心餅乾。",type:"restaurant"},
-  {id:30,name:"小小兵流行商店",desc:"對於時尚非常敏感的小小兵們提議的流行商品專賣店。",type:"shop"},
-  {id:31,name:"甜蜜俘虜商店",desc:"這家粉紅色的店，對於喜愛甜食的人來說是無法抗拒的！",type:"shop"},
-  {id:32,name:"小小兵粉絲商店",desc:"小小兵的粉絲們聚集的商店。",type:"shop"},
-  {id:33,name:"快樂咖啡廳™",desc:"以格魯最愛的菜單為首，可以享受到小小兵們設計的餐點！",type:"restaurant"},
-  {id:34,name:"大白鯊™",desc:"乘坐觀光船，從襲擊和平港鎮的巨大食人鯊的恐怖中逃脫。",type:"ride"},
-  {id:35,name:"親善村漫步道遊戲",desc:"位於親善村的遊戲區。",type:"game"},
-  {id:36,name:"親善村冰淇淋",desc:"位於親善村的冰淇淋店。",type:"restaurant"},
-  {id:37,name:"木板路小吃",desc:"位於親善村的小吃店。",type:"restaurant"},
-  {id:38,name:"好萊塢美夢・乘車遊",desc:"選擇你喜愛的BGM，如飛翔在空中般奔馳的爽快雲霄飛車。",type:"ride"},
-  {id:39,name:"好萊塢美夢・乘車遊 ～逆轉世界～",desc:"後退行駛的雲霄飛車。",type:"ride"},
-  {id:40,name:"梅兒茲餐廳™",desc:"彷彿穿越時空來到50年代的美國！",type:"restaurant"},
-  {id:41,name:"比佛利山莊法式咖啡™",desc:"以法國街頭的露天咖啡座為主題。",type:"restaurant"},
-  {id:42,name:"環球影城禮品屋",desc:"園區內最大的紀念品商店。",type:"shop"},
-  {id:43,name:"羅迪歐大道禮品屋",desc:"以史努比和芝麻街等角色的周邊商品為主的商店。",type:"shop"},
-  {id:44,name:"加州糖果餅乾店",desc:"集結了園區內人氣的點心！",type:"shop"},
-  {id:45,name:"瑪利歐咖啡店&商店™",desc:"以瑪利歐和路易吉的帽子為主題的咖啡店及商店。",type:"shop_restaurant"},
-  {id:46,name:"蜘蛛人驚魂歷險記商品屋",desc:"蜘蛛人的周邊商品專賣店。",type:"shop"},
-  {id:47,name:"芬尼根酒吧&燒烤™",desc:"位於紐約區的愛爾蘭酒吧。",type:"restaurant"},
-  {id:48,name:"園畔護柵®",desc:"位於紐約區的牛排屋。",type:"restaurant"},
-  {id:49,name:"路易斯紐約比薩餅舖™",desc:"位於紐約區的比薩店。",type:"restaurant"},
-  {id:50,name:"SAIDO™",desc:"位於紐約區的日式餐廳。",type:"restaurant"},
-  {id:51,name:"名偵探柯南 4-D 現場表演秀：星空的寶石",desc:"名偵探柯南的世界，透過寬100m的巨型螢幕×3D影像×現場娛樂表演。",type:"show"},
-  {id:52,name:"哈利波特禁忌之旅™",desc:"連續5年榮獲世界No.1乘車遊的殊榮。",type:"ride"},
-  {id:53,name:"超級任天堂世界™",desc:"重現了瑪利歐的世界。",type:"area"},
-  {id:54,name:"瑪利歐賽車～庫巴的挑戰書～™",desc:"瑪利歐賽車的世界以及驚奇與興奮，透過最先進的技術化為現實！",type:"ride"},
-  {id:55,name:"耀西冒險™",desc:"騎在耀西的背上，跟著奇諾比奧隊長出發去尋寶！",type:"ride"},
-  {id:56,name:"咚奇剛的瘋狂礦車™",desc:"為了保護黃金香蕉，在叢林裡奔馳！",type:"ride"},
-  {id:57,name:"能量手環™的關鍵挑戰",desc:"從庫巴二世那裡奪回黃金蘑菇！",type:"attraction"},
-  {id:58,name:"奇諾比奧咖啡店™",desc:"維修中的敲磚塊、水管的裡面... 透過窗戶，說不定能看到快樂的蘑菇王國的樣子！？",type:"restaurant"},
-  {id:59,name:"耀西小吃島™",desc:"以耀西和烏龜殼為主題的餡餅及飲料，很適合邊走邊吃。",type:"restaurant"},
-  {id:60,name:"加油站爆米花",desc:"瑪利歐賽車的爆米花桶就在這裡！",type:"shop_food"},
-  {id:61,name:"咚奇剛的叢林冰沙",desc:"從木桶飛出來的咚奇剛超狂野！",type:"shop_food"},
-  {id:62,name:"環球奇境",desc: "艾蒙、史努比、Hello Kitty住在這裡的城鎮。", type: "area" },
-  {id:63,name:"飛天史努比",desc:"和史努比一起在空中飛翔！",type:"ride"},
-  {id:64,name:"史努比音響舞台歷險記™",desc:"可以和史努比們一起玩的室內遊樂場。",type:"play_area"},
-  {id:65,name:"史努比外景咖啡廳™",desc:"史努比和朋友們聚會的咖啡廳。",type:"restaurant"},
-  {id:66,name:"史努比攝影棚商品屋",desc:"滿滿的都是史努比周邊商品！",type:"shop"},
-  {id:67,name:"Hello Kitty蝴蝶結大收藏",desc:"參觀Hello Kitty的工作室，還可以合影留念！",type: "attraction"},
-  {id:68,name:"Hello Kitty夢幻蛋糕杯",desc:"隨著音樂旋轉的杯形蛋糕遊樂設施。",type:"ride"},
-  {id:69,name:"Hello Kitty蝴蝶結時尚精品店",desc:"Hello Kitty周邊商品。",type:"shop"},
-  {id:70,name:"Hello Kitty轉角咖啡廳",desc:"各式各樣可愛無比的食物！",type:"restaurant"},
-  {id:71,name:"大鳥的大頂篷馬戲團",desc:"芝麻街夥伴們擔任團長的旋轉木馬。",type:"ride"},
-  {id:72,name:"莫比的氣球之旅",desc:"乘坐氣球，從高空俯瞰芝麻街歡樂世界。",type:"ride"},
-  {id:73,name:"芝麻街大操場",desc:"巨大的攀爬架和滑梯。",type:"play_area"},
-  {id:74,name:"水世界™",desc:"充滿魄力的特技表演與爆破場面，必看的水上實境秀。",type:"show"},
-  {id:75,name:"新世紀福音戰士 XR乘車遊",desc:"VR雲霄飛車，體驗EVA的世界。",type:"ride"},
-  {id:76,name:"鬼滅之刃 XR乘車遊",desc:"VR雲霄飛車，體驗鬼滅之刃的世界。",type:"ride"},
-  {id:77,name:"名偵探柯南 4-D 現場表演秀：星空的寶石",desc:"名偵探柯南的世界，透過寬100m的巨型螢幕×3D影像×現場娛樂表演。",type:"show"},
-  {id:78,name:"我的英雄學院 The Real 4-D",desc:"與綠谷出久等英雄們一起對抗敵人。",type:"show"},
-  {id:79,name:"魔物獵人世界：冰原 XR WALK",desc:"在VR空間中自由行走的次世代遊樂設施。",type:"attraction"},
-  {id:80,name:"Sing on Tour",desc:"電影《歡樂好聲音》的角色們帶來的音樂劇。",type:"show"},
-  {id:81,name:"環球妖魔鬼怪搖滾樂表演秀",desc:"甲殼蟲汁與妖怪們的搖滾樂表演。",type:"show"},
-  {id:82,name:"好奇猴喬治同樂",desc:"和喬治一起玩耍！",type:"show"},
-  {id:83,name:"史瑞克 4-D 歷險記",desc:"史瑞克與驢子的冒險。",type:"show"},
-  {id:84,name:"芝麻街 4-D 電影魔術",desc:"芝麻街夥伴們的冒險。",type:"show"},
-  {id:85,name:"魔杖魔法",desc:"在活米村揮動魔杖，就會發生不可思議的魔法！",type:"attraction"},
-  {id:86,name:"費歐娜公主的照相館",desc:"可以和費歐娜公主合影。",type:"photo_spot"},
-  {id:87,name:"42號街工作室 - 迎賓畫廊",desc:"小小兵與史努比等角色的迎賓處。",type:"photo_spot"},
-  {id:88,name:"環球影城夜間奇觀遊行",desc:"利用光雕投影技術的夜間遊行。",type:"show"},
-  {id:89,name:"NO LIMIT! 遊行",desc:"瑪利歐、寶可夢等角色登場的熱鬧遊行。",type:"show"},
-  {id:90,name:"Power of Pop: Trending",desc:"實力派歌手帶來的流行歌曲演唱會。",type:"show"},
-  {id:91,name:"小提琴三重奏",desc:"街頭小提琴演奏。",type:"show"},
-  {id:92,name:"Hello Kitty Happiness Brass Band",desc:"Hello Kitty與銅管樂隊的表演。",type:"show"},
-  {id:93,name:"East Meets West Quartet",desc:"小提琴與三味線的合奏。",type:"show"},
-  {id:94,name:"Malibu Fried Chicken",desc:"美式炸雞店。",type:"restaurant"},
-  {id:95,name:"Boardwalk Snacks",desc:"比薩與熱狗。",type:"restaurant"},
-  {id:96,name:"Dragon's Pearl",desc:"中式餐廳。",type:"restaurant"},
-  {id:97,name:"Happiness Cafe",desc:"咖哩飯與飲料無限暢飲。",type:"restaurant"},
-  {id:98,name:"Studio Stars Restaurant",desc:"位於好萊塢區的西式餐廳。",type:"restaurant"},
-  {id:99,name:"Beverly Hills Boulangerie",desc:"三明治與甜點。",type:"restaurant"},
-  {id:100,name:"Schwab's Pharmacy",desc:"復古風格的藥局。",type:"shop"},
-  {id:101,name:"The Darkroom",desc:"相機與底片。",type:"shop"},
-  {id:102,name:"Universal Studios Store",desc:"園區內最大的商店。",type:"shop"},
-  {id:103,name:"It's So Fluffy!",desc:"獨角獸Fluffy的專賣店。",type:"shop"},
-  {id:104,name:"Minion Marketplace",desc:"小小兵商品。",type:"shop"},
-  {id:105,name:"San Francisco Candies",desc:"舊金山風格的糖果店。",type:"shop"},
-  {id:106,name:"Jurassic Outfitters",desc:"恐龍周邊商品。",type:"shop"},
-  {id:107,name:"One Piece Premier Show",desc:"航海王真人秀。",type:"show"},
-  {id:108,name:"Sanji's Pirates Restaurant",desc:"香吉士的海賊餐廳。",type:"restaurant"},
-  {id:109,name:"Discovery Restaurant",desc:"以電影《侏羅紀公園》遊客中心為主題的餐廳。",type:"restaurant"},
-  {id:110,name:"Fossil Fuels",desc:"輕食與飲料。",type:"shop_food"},
-  {id:111,name:"Azzurra di Capri",desc:"以藍洞為意象的義大利餐廳。",type:"restaurant"},
-  {id:112,name:"Park Side Grille",desc:"可以眺望湖景的餐廳。",type:"restaurant"},
-  {id:113,name:"Finnegan's Bar & Grill",desc:"愛爾蘭酒吧。",type:"restaurant"},
-  {id:114,name:"Louie's N.Y. Pizza Parlor",desc:"紐約風格比薩。",type:"restaurant"},
-  {id:115,name:"Saido",desc:"紐約區的日式餐廳。",type:"restaurant"},
-  {id:116,name:"Whomp's Snack Bar",desc:"瑪利歐世界的輕食店。",type:"shop_food"},
-  {id:117,name:"Mario Cafe & Store",desc:"瑪利歐主題咖啡店。",type:"shop_restaurant"},
-  {id:118,name:"Yoshi's Snack Island",desc:"耀西主題輕食。",type:"shop_food"},
-  {id:119,name:"Pit Stop Popcorn",desc:"瑪利歐賽車爆米花。",type:"shop_food"},
-  {id:120,name:"Donkey Kong's Jungle Sips",desc:"咚奇剛主題飲料。",type:"shop_food"},
-  {id:121,name:"Funne's Store",desc:"太空幻想列車旁的商店。",type:"shop"},
-  {id:122,name:"Space Fantasy Station",desc:"太空幻想列車周邊。",type:"shop"},
-  {id:123,name:"Sesame Street Kids Store",desc:"芝麻街兒童服飾。",type:"shop"},
-  {id:124,name:"Hello Kitty's Ribbon Boutique",desc:"Hello Kitty精品店。",type:"shop"},
-  {id:125,name:"Peanuts Corner Store",desc:"史努比周邊。",type:"shop"},
-  {id:126,name:"Character 4 U",desc:"各種角色商品。",type:"shop"},
-  {id:127,name:"Cinema 4-D Store",desc:"4-D電影周邊。",type:"shop"},
-  {id:128,name:"Universal Studios Souvenirs",desc:"環球影城紀念品。",type:"shop"},
-  {id:129,name:"Backlot Accessories",desc:"飾品與配件。",type:"shop"},
-  {id:130,name:"California Confectionery",desc:"糖果餅乾。",type:"shop"},
-  {id:131,name:"Rodeo Drive Souvenirs",desc:"羅迪歐大道紀念品。",type:"shop"},
-  {id:132,name:"Universal Studios Store (CityWalk)",desc:"園區外的商店。",type:"shop"},
-  {id:133,name:"The Park Front Hotel Shop",desc:"飯店內的商店。",type:"shop"},
-  {id:134,name:"Hotel Universal Port Shop",desc:"飯店內的商店。",type:"shop"},
-  {id:135,name:"Hotel Keihan Universal Tower Shop",desc:"飯店內的商店。",type:"shop"},
-  {id:136,name:"Hotel Kintetsu Universal City Shop",desc:"飯店內的商店。",type:"shop"},
-  {id:137,name:"Sing on Tour Store",desc:"歡樂好聲音周邊。",type:"shop"},
-  {id:138,name:"Despicable Me Minion Mayhem Store",desc:"小小兵乘車遊商店。",type:"shop"},
-  {id:139,name:"Freeze Ray Sliders Shop",desc:"冰凍雷射光周邊。",type:"shop"},
-  {id:140,name:"Lombard's Landing",desc:"舊金山區的餐廳。",type:"restaurant"},
-  {id:141,name:"Wharf Cafe",desc:"舊金山區的咖啡廳。",type:"restaurant"},
-  {id:142,name:"Dragon's Pearl",desc:"中式速食。",type:"restaurant"},
-  {id:143,name:"Coca-Cola Happiness Station",desc:"飲料販賣站。",type:"shop_food"},
-  {id:144,name:"Jurassic Park The Ride Photo",desc:"侏羅紀公園乘船遊照片。",type:"shop"},
-  {id:145,name:"The Flying Dinosaur Photo",desc:"飛天翼龍照片。",type:"shop"},
-  {id:146,name:"Hollywood Dream The Ride Photo",desc:"好萊塢美夢照片。",type:"shop"},
-  {id:147,name:"Jaws Photo",desc:"大白鯊照片。",type:"shop"},
-  {id:148,name:"Forbidden Journey Photo",desc:"禁忌之旅照片。",type:"shop"},
-  {id:149,name:"Mario Kart Photo",desc:"瑪利歐賽車照片。",type:"shop"},
-  {id:150,name:"Yoshi's Adventure Photo",desc:"耀西冒險照片。",type:"shop"},
-  {id:151,name:"Wonderland Photo",desc:"環球奇境照片。",type:"shop"},
-  {id:152,name:"Minion Park Photo",desc:"小小兵樂園照片。",type:"shop"},
-  {id:153,name:"Amity Boardwalk Games",desc:"親善村遊戲。",type:"game"},
-  {id:154,name:"Festival in the Park",desc:"園區內的遊戲攤位。",type:"game"},
-  {id:155,name:"Banana Cabana",desc:"小小兵樂園遊戲。",type:"game"},
-  {id:156,name:"Space Killer",desc:"射擊遊戲。",type:"game"},
-  {id:157,name:"Coin Pitch",desc:"投幣遊戲。",type:"game"},
-  {id:158,name:"Goblet Toss",desc:"丟球遊戲。",type:"game"}
+  {id:23,name:"侏羅紀公園・乘船遊™",desc:"乘船探險。",type:"ride"},
+  {id:27,name:"小小兵瘋狂乘車遊",desc:"進入格魯的實驗室。",type:"ride"},
+  {id:34,name:"大白鯊™",desc:"乘船逃離食人鯊。",type:"ride"},
+  {id:38,name:"好萊塢美夢・乘車遊",desc:"爽快雲霄飛車。",type:"ride"},
+  {id:52,name:"哈利波特禁忌之旅™",desc:"世界No.1乘車遊。",type:"ride"},
+  {id:54,name:"瑪利歐賽車～庫巴的挑戰書～™",desc:"瑪利歐賽車現實版。",type:"ride"},
+  {id:55,name:"耀西冒險™",desc:"騎在耀西背上尋寶。",type:"ride"},
+  {id:56,name:"咚奇剛的瘋狂礦車™",desc:"叢林奔馳。",type:"ride"},
+  {id:58,name:"奇諾比奧咖啡店™",desc:"蘑菇王國餐廳。",type:"restaurant"},
+  {id:62,name:"環球奇境",desc: "艾蒙、史努比、Hello Kitty的城鎮。", type: "area" },
+  {id:74,name:"水世界™",desc:"特技表演秀。",type:"show"},
+  {id:158,name:"鬼滅之刃 XR乘車遊",desc:"VR雲霄飛車。",type:"ride"},
 ];
 
 const EXPRESS_PASS_DEFINITIONS = {
@@ -364,18 +223,7 @@ const getExpressPassContent = (passName) => {
   return [{ id: 'mario_kart', timed: true }];
 };
 
-// --- Helper Functions ---
-function getSvgPoint(evt, svgEl) {
-  const pt = svgEl.createSVGPoint();
-  pt.x = evt.clientX;
-  pt.y = evt.clientY;
-  const ctm = svgEl.getScreenCTM();
-  if (!ctm) return null;
-  const p = pt.matrixTransform(ctm.inverse());
-  return { x: p.x, y: p.y };
-}
-
-// --- Components ---
+// --- Edit Modal ---
 const EditModal = ({ isOpen, onClose, item, onSave }) => {
     const [name, setName] = useState('');
     const [startTime, setStartTime] = useState('');
@@ -446,6 +294,19 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
     );
 };
 
+// --- Helper: Get SVG Point ---
+function getSvgPoint(evt, svgEl) {
+  const pt = svgEl.createSVGPoint();
+  pt.x = evt.clientX;
+  pt.y = evt.clientY;
+  const ctm = svgEl.getScreenCTM();
+  if (!ctm) return null;
+  const p = pt.matrixTransform(ctm.inverse());
+  return { x: p.x, y: p.y }; 
+}
+
+// --- Main App Component ---
+
 export default function USJPlannerApp() {
   const [currentView, setCurrentView] = useState('home'); 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -507,7 +368,7 @@ export default function USJPlannerApp() {
   
   const [itinerary, setItinerary] = useState([]);
   
-  // GPS & Map States
+  // GPS States
   const [gpsRaw, setGpsRaw] = useState(null); 
   const [gpsXY, setGpsXY] = useState({ x: 50, y: 95 }); 
   const [lastGpsFix, setLastGpsFix] = useState(null); 
@@ -591,7 +452,7 @@ export default function USJPlannerApp() {
             (error) => {
                 console.error("GPS Error:", error);
             },
-            { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+            { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
         );
     }
     return () => {
@@ -624,7 +485,6 @@ export default function USJPlannerApp() {
           setItinerary(prev => prev.filter(i => i !== itemToDelete));
       }
   };
-
   const saveCurrentPlan = () => {
     if (itinerary.length === 0) return;
     const newPlan = { id: Date.now(), timestamp: new Date().toLocaleString(), name: `${formData.date}行程`, formData, itinerary, weather: displayWeather };
