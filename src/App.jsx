@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, ZoomIn, ZoomOut, Maximize, Sliders } from 'lucide-react';
+import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, Image as ImageIcon, Upload, ZoomIn, ZoomOut, Maximize, Sliders } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
@@ -111,6 +111,7 @@ const ATTRACTIONS = [
   { id: 'waterworld_show', name: '水世界表演', zone: 'waterworld', type: 'show', wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show' },
 ];
 
+// 完整設施清單 (部分範例，供 AI 參考)
 const FACILITY_DATABASE = [
   {id:1,name:"1UP工廠™",desc:"有許多在別的地方買不到的周邊商品！",type:"shop"},
   {id:12,name:"鷹馬的飛行™",desc:"適合全家人的雲霄飛車。",type:"ride"},
@@ -134,7 +135,32 @@ const FACILITY_DATABASE = [
 const EXPRESS_PASS_DEFINITIONS = {
   1:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'conan_4d',t:true}, {id:'jurassic_park',t:false}],
   2:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'minion_mayhem',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
-  // ... 其他定義保持不變
+  3:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  4:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  5:  [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'flying_dinosaur',t:false}, {id:'jaws',t:false}, {id:'jurassic_park',t:false}],
+  6:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'flying_dinosaur',t:false}, {id:'minion_mayhem',t:false}, {id:'hollywood_dream',t:false}],
+  7:  [{id:'mario_kart',t:true}, {id:'jurassic_park',t:false}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false}, {id:'minion_mayhem',t:true, note:'Ride 2 (The Real)'}],
+  8:  [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:true}, {id:'flying_dinosaur',t:false}],
+  9:  [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  10: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  11: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true, choice:'or_flying_dinosaur'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  12: [{id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  13: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'flying_dinosaur',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  14: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'flying_dinosaur',t:false, choice:'or_jaws'}],
+  15: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'spy_family',t:true}, {id:'hollywood_dream',t:false, choice:'or_flying_dinosaur'}],
+  16: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'hollywood_dream',t:false, choice:'or_flying_dinosaur'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  17: [{id:'harry_potter_journey',t:true}, {id:'spy_family',t:true}, {id:'flying_dinosaur',t:false}, {id:'hollywood_dream',t:false}],
+  18: [{id:'harry_potter_journey',t:true}, {id:'hollywood_backdrop',t:true}, {id:'hollywood_dream',t:false, choice:'or_flying_dinosaur'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  19: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'hollywood_backdrop',t:true}, {id:'hollywood_dream',t:false, choice:'or_jaws'}],
+  20: [{id:'harry_potter_journey',t:true}, {id:'spy_family',t:true}, {id:'jaws',t:false}, {id:'jurassic_park',t:false}],
+  21: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'hollywood_backdrop',t:true}, {id:'flying_dinosaur',t:false}],
+  22: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'hollywood_dream',t:false}, {id:'flying_dinosaur',t:false}],
+  23: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  24: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
+  25: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'jujutsu_4d',t:true}, {id:'flying_dinosaur',t:false}],
+  26: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_space'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  27: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
+  28: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}]
 };
 
 const EXPRESS_PASS_RAW = [
@@ -1183,42 +1209,47 @@ export default function USJPlannerApp() {
                 <img 
                     src={FIXED_MAP_SRC} 
                     alt="USJ Map" 
-                    className="block"
+                    style={{ display: 'block', maxWidth: 'none', maxHeight: 'none' }} // 解除 max 限制
                     draggable={false}
-                    onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "https://www.usj.co.jp/web/d_common/img/usj-map-guide-studio-thumb.jpg";
-                    }}
                 />
 
                 {/* Interactive Overlay Layer */}
                 <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none">
-                    {/* Zones (Fixed Visual Position) */}
-                    {ZONES_DATA.map(zone => (
-                        <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
-                            {/* 手動指定的視覺座標，確保與您的圖相符 */}
-                            <circle cx={zone.x} cy={zone.y} r="8" fill={zone.color} opacity="0.6" />
-                            <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
-                                {zone.code} 
-                            </text>
-                            <text x={zone.x} y={zone.y + 12} textAnchor="middle" fontSize="2" fill="black" fontWeight="bold">
-                                {zone.name.substring(2, 6)}
-                            </text>
-                        </g>
-                    ))}
-
-                    {/* User GPS (Calculated via Affine Transform) */}
-                    {(() => {
-                        // 使用 getCalibratedGps 結合仿射變換與手動微調
-                        const { x, y } = realGpsEnabled ? projectGpsToMap(gpsRaw?.lat || 0, gpsRaw?.lng || 0) : gpsLocation;
-                        
+                    {/* Zones */}
+                    {ZONES_DATA.map(zone => {
+                        const { x, y } = projectGpsToMap(zone.lat, zone.lng);
                         return (
-                            <g transform={`translate(${x}, ${y})`}>
-                                <circle r="4" fill="#3b82f6" opacity="0.8" className="animate-ping" />
-                                <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
+                            <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => alert(zone.name)}>
+                                <circle cx={x} cy={y} r="8" fill={zone.color} opacity="0.6" />
+                                <text x={x} y={y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold" stroke="white" strokeWidth="0.1">
+                                    {zone.name.substring(0, 4)} 
+                                </text>
+                                <text x={x} y={y} dy="-0.8em" textAnchor="middle" fontSize="3" fill="blue" fontWeight="bold">
+                                    {zone.code} 
+                                </text>
                             </g>
                         );
-                    })()}
+                    })}
+
+                    {/* Attractions */}
+                    {ATTRACTIONS.map(attr => {
+                        const z = ZONES_MAP[attr.zone];
+                        if (!z) return null;
+                        
+                        const { x, y } = projectGpsToMap(z.lat, z.lng);
+                        // 隨機偏移，模擬設施散布在區域周圍
+                        const offsetX = (Math.random() - 0.5) * 5;
+                        const offsetY = (Math.random() - 0.5) * 5;
+                        return (
+                            <circle key={attr.id} cx={x + offsetX} cy={y + offsetY} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
+                        );
+                    })}
+
+                    {/* User GPS */}
+                    <g transform={`translate(${gpsXY.x}, ${gpsXY.y})`}>
+                        <circle r="4" fill="#3b82f6" opacity="0.8" className="animate-ping" />
+                        <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
+                    </g>
                 </svg>
             </div>
         </div>
@@ -1240,10 +1271,8 @@ export default function USJPlannerApp() {
         {!realGpsEnabled && (
             <div className="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-lg pointer-events-auto">
                 <button className="p-2 bg-blue-100 rounded-full text-blue-600 mb-2 block" onClick={() => {
-                    // 模擬走到 A 區 (好萊塢)
-                    // 這裡直接設定為 A 區的視覺座標
                     const zoneA = ZONES_MAP['hollywood'];
-                    setGpsLocation({ x: zoneA.x, y: zoneA.y });
+                    setGpsXY({ x: zoneA.x, y: zoneA.y });
                 }}>
                     <Navigation size={20} />
                 </button>
@@ -1253,7 +1282,7 @@ export default function USJPlannerApp() {
 
         {/* Map Calibration Notice */}
         <div className="absolute top-2 left-2 right-14 bg-white/90 p-2 rounded text-[10px] text-gray-500 shadow-sm pointer-events-none">
-            地圖模式：自動三角定位校正。請上傳對應的 A-J 編號地圖。
+            地圖模式：自動三角定位校正。
         </div>
       </div>
     </div>
