@@ -7,7 +7,7 @@ const apiKey = "";
 // --- 地圖設定 ---
 const FIXED_MAP_SRC = "/usj_map.jpg"; 
 
-// --- GPX 資料 (包含您提供的數據) ---
+// --- GPX 資料 (保留新版地圖功能) ---
 const GPX_RAW_DATA = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="USJ-OSM-Exporter" xmlns="http://www.topografix.com/GPX/1/1">
   <wpt lat="34.66621830" lon="135.43475690"><name>ビバリーヒルズ・ブランジェリー</name><desc>amenity=cafe | amenity=cafe</desc></wpt>
@@ -115,6 +115,19 @@ const GPX_RAW_DATA = `<?xml version="1.0" encoding="UTF-8"?>
   <wpt lat="34.66795810" lon="135.43529650"><name>ユニバーサル・グローブ</name><desc>tourism=attraction | tourism=attraction</desc></wpt>
   <wpt lat="34.66799740" lon="135.43025720"><name>ヨッシー・アドベンチャー</name><desc>tourism=attraction | tourism=attraction</desc></wpt>
   <wpt lat="34.66709350" lon="135.43552890"><name>ゲストサービス</name><desc>tourism=information | tourism=information | information=yes</desc></wpt>
+  <wpt lat="34.66614840" lon="135.42989260"><name>MOVIE PROP</name><desc>tourism=information | tourism=information | information=board</desc></wpt>
+  <wpt lat="34.66424400" lon="135.43075000"><name>WAIT TIME 待ち時間</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66416260" lon="135.43072410"><name>WARNING 注意</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66438320" lon="135.43326500"><name>映画撮影セット『アニー』ハドソン通りの少女の家</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66458090" lon="135.43331190"><name>映画撮影セット『ウエストサイド物語』マリアのバルコニー</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66441680" lon="135.43337120"><name>映画撮影セット『スティング』ガレージ</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66437070" lon="135.43347640"><name>映画撮影セット『スティング』セイグラー倉庫</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66449630" lon="135.43337240"><name>映画撮影セット『スティング』マクネール パブサプライ</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66439410" lon="135.43338380"><name>映画撮影セット『スティング』電動モーター修理場</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66399790" lon="135.43279210"><name>映画撮影セット『ステイン アライブ』彩道</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66459890" lon="135.43332540"><name>映画撮影セット『ストリートファイター』樽・桶製造所</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66438570" lon="135.43324710"><name>映画撮影セット『マルタの鷹』スペイドのオフィス</name><desc>tourism=information | tourism=information</desc></wpt>
+  <wpt lat="34.66431920" lon="135.43351910"><name>映画撮影セット『質屋』ナザーマン質屋</name><desc>tourism=information | tourism=information</desc></wpt>
 </gpx>`;
 
 // --- 繁體中文化對照表 ---
@@ -278,17 +291,16 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-// 2. 經緯度轉平面公尺座標 (Local Tangent Plane Approximation)
-// lat0, lng0 為參考原點
+// 2. 經緯度轉平面公尺座標
 function llToLocalMeters(lat, lng, lat0, lng0) {
-  const R = 6378137; // WGS84 Earth Radius
+  const R = 6378137;
   const toRad = d => d * Math.PI / 180;
   const x = (toRad(lng - lng0)) * R * Math.cos(toRad(lat0));
   const y = (toRad(lat - lat0)) * R;
   return { x, y };
 }
 
-// 3. 加權最小平方法 (Weighted Least Squares) 求解仿射矩陣
+// 3. 加權最小平方法
 function solveWeightedLeastSquares(points) {
     let sumW = 0;
     let sumWX = 0, sumWY = 0;
@@ -340,43 +352,32 @@ function solveWeightedLeastSquares(points) {
     return { a, b, c, d, e, f };
 }
 
-// 4. 新增：建立局部仿射矩陣 (只取最近N點)
+// 4. 建立局部仿射矩陣 (只取最近N點)
 function buildLocalAffineMatrix({
   userLat,
   userLng,
   anchors,
-  N = 8,                 // 建議 6~10，先用 8
+  N = 8,
   useAccuracyWeight = true,
   useDistanceWeight = true
 }) {
   const valid = anchors.filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lng));
   if (valid.length < 3) return null;
 
-  // 1) 取最近 N 個錨點
   const nearest = valid
     .map(a => ({ a, dist: haversineMeters(userLat, userLng, a.lat, a.lng) }))
     .sort((p, q) => p.dist - q.dist)
     .slice(0, Math.max(3, Math.min(N, valid.length)));
 
-  // 2) 用「這批錨點的中心」當 local meters 原點（很重要：局部更穩）
   const centerLat = nearest.reduce((s, p) => s + p.a.lat, 0) / nearest.length;
   const centerLng = nearest.reduce((s, p) => s + p.a.lng, 0) / nearest.length;
 
-  // 3) 組 weighted LS 點
   const points = nearest.map(({ a, dist }) => {
     const local = llToLocalMeters(a.lat, a.lng, centerLat, centerLng);
-
-    // 如果你沒有存每個 anchor 的 accuracy，就先當 10m
     const acc = Number.isFinite(a.acc) ? a.acc : 10;
-
     let w = 1;
-
-    if (useAccuracyWeight) {
-      w *= 1 / Math.max(acc * acc, 1);           // 1/σ²
-    }
-    if (useDistanceWeight) {
-      w *= 1 / Math.max(dist * dist, 25);        // 避免 dist->0 爆炸；5m^2=25
-    }
+    if (useAccuracyWeight) w *= 1 / Math.max(acc * acc, 1);
+    if (useDistanceWeight) w *= 1 / Math.max(dist * dist, 25);
 
     return {
       localX: local.x,
@@ -390,10 +391,10 @@ function buildLocalAffineMatrix({
   const matrix = solveWeightedLeastSquares(points);
   if (!matrix) return null;
 
-  return { matrix, centerLat, centerLng, nearest }; // nearest 留著 debug 用
+  return { matrix, centerLat, centerLng, nearest };
 }
 
-// 5. 新增：應用仿射矩陣
+// 5. 應用仿射矩陣
 function applyAffine({ lat, lng, centerLat, centerLng, matrix }) {
   const local = llToLocalMeters(lat, lng, centerLat, centerLng);
   const { a, b, c, d, e, f } = matrix;
@@ -403,7 +404,7 @@ function applyAffine({ lat, lng, centerLat, centerLng, matrix }) {
 }
 
 
-// ... (Attractions and Facility Database - 為了精簡程式碼，此處省略既有部分，保留原有功能所需的變數)
+// --- 景點與設施資料庫 (恢復完整資料以供行程規劃使用) ---
 const ATTRACTIONS = [
   { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'nintendo', type: 'ride', wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
   { id: 'mario_kart', name: '瑪利歐賽車：庫巴的挑戰書', zone: 'nintendo', type: 'ride', wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'medium' },
@@ -423,10 +424,102 @@ const ATTRACTIONS = [
   { id: 'jujutsu_4d', name: '咒術迴戰 The Real 4-D', zone: 'hollywood', type: 'show', wait: { holiday: 50, weekend: 30, weekday: 20 }, thrill: 'low' },
   { id: 'waterworld_show', name: '水世界表演', zone: 'waterworld', type: 'show', wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show' },
 ];
-// ... Express Pass definitions omitted for brevity but assumed present
-const EXPRESS_PASS_RAW = [ "1. 快速通關券8 - Minecart & Minion Mayhem Special", "2. 快速通關券8 - Minion & Minecart Special"]; // Simplified for this view
+
+const FACILITY_DATABASE = [
+  {id:1,name:"1UP工廠™",desc:"有許多在別的地方買不到的周邊商品！",type:"shop"},
+  {id:12,name:"鷹馬的飛行™",desc:"適合全家人的雲霄飛車。",type:"ride"},
+  {id:14,name:"三根掃帚™",desc:"活米村的老字號酒館。",type:"restaurant"},
+  {id:16,name:"蜂蜜公爵™",desc:"糖果店。",type:"shop"},
+  {id:22,name:"飛天翼龍",desc:"世界最長×世界最大高低差的最新型雲霄飛車。",type:"ride"},
+  {id:23,name:"侏羅紀公園・乘船遊™",desc:"乘船探險。",type:"ride"},
+  {id:27,name:"小小兵瘋狂乘車遊",desc:"進入格魯的實驗室。",type:"ride"},
+  {id:34,name:"大白鯊™",desc:"乘船逃離食人鯊。",type:"ride"},
+  {id:38,name:"好萊塢美夢・乘車遊",desc:"爽快雲霄飛車。",type:"ride"},
+  {id:52,name:"哈利波特禁忌之旅™",desc:"世界No.1乘車遊。",type:"ride"},
+  {id:54,name:"瑪利歐賽車～庫巴的挑戰書～™",desc:"瑪利歐賽車現實版。",type:"ride"},
+  {id:55,name:"耀西冒險™",desc:"騎在耀西背上尋寶。",type:"ride"},
+  {id:56,name:"咚奇剛的瘋狂礦車™",desc:"叢林奔馳。",type:"ride"},
+  {id:58,name:"奇諾比奧咖啡店™",desc:"蘑菇王國餐廳。",type:"restaurant"},
+  {id:62,name:"環球奇境",desc: "艾蒙、史努比、Hello Kitty的城鎮。", type: "area" },
+  {id:74,name:"水世界™",desc:"特技表演秀。",type:"show"},
+  {id:158,name:"鬼滅之刃 XR乘車遊",desc:"VR雲霄飛車。",type:"ride"},
+];
+
+const EXPRESS_PASS_DEFINITIONS = {
+  1:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'conan_4d',t:true}, {id:'jurassic_park',t:false}],
+  2:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'minion_mayhem',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  3:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  4:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  5:  [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'flying_dinosaur',t:false}, {id:'jaws',t:false}, {id:'jurassic_park',t:false}],
+  6:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'flying_dinosaur',t:false}, {id:'minion_mayhem',t:false}, {id:'hollywood_dream',t:false}],
+  7:  [{id:'mario_kart',t:true}, {id:'jurassic_park',t:false}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false}, {id:'minion_mayhem',t:true, note:'Ride 2 (The Real)'}],
+  8:  [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:true}, {id:'flying_dinosaur',t:false}],
+  9:  [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  10: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  11: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true, choice:'or_flying_dinosaur'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  12: [{id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  13: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'flying_dinosaur',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  14: [{id:'mario_kart',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'flying_dinosaur',t:false, choice:'or_jaws'}],
+  15: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'spy_family',t:true}, {id:'hollywood_dream',t:false, choice:'or_flying_dinosaur'}],
+  16: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'hollywood_dream',t:false, choice:'or_flying_dinosaur'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  17: [{id:'harry_potter_journey',t:true}, {id:'spy_family',t:true}, {id:'flying_dinosaur',t:false}, {id:'hollywood_dream',t:false}],
+  18: [{id:'harry_potter_journey',t:true}, {id:'hollywood_backdrop',t:true}, {id:'hollywood_dream',t:false, choice:'or_flying_dinosaur'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  19: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'hollywood_backdrop',t:true}, {id:'hollywood_dream',t:false, choice:'or_jaws'}],
+  20: [{id:'harry_potter_journey',t:true}, {id:'spy_family',t:true}, {id:'jaws',t:false}, {id:'jurassic_park',t:false}],
+  21: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'hollywood_backdrop',t:true}, {id:'flying_dinosaur',t:false}],
+  22: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'hollywood_dream',t:false}, {id:'flying_dinosaur',t:false}],
+  23: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  24: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
+  25: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'jujutsu_4d',t:true}, {id:'flying_dinosaur',t:false}],
+  26: [{id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_space'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  27: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'space_fantasy',t:false}, {id:'flying_dinosaur',t:false}],
+  28: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}]
+};
+
+const EXPRESS_PASS_RAW = [
+  "1. 快速通關券8 - Minecart & Minion Mayhem Special",
+  "2. 快速通關券8 - Minion & Minecart Special",
+  "3. 快速通關券7 - Minecart & Minion Mayhem",
+  "4. 快速通關券7 - Minecart & Selection",
+  "5. 快速通關券5 - Minecart & JAWS Special",
+  "6. 快速通關券5 - Adventure Special",
+  "7. 快速通關券5 - Race & Minion Mayhem Special",
+  "8. 快速通關券5 - Race & Minecart Special",
+  "9. 快速通關券5 - Race & Minion Special",
+  "10. 快速通關券4 - Minecart & Fun",
+  "11. 快速通關券4 - Minecart & JAWS",
+  "12. 快速通關券4 - Minecart & Jurassic Park",
+  "13. 快速通關券4 - Minecart & Flying Dinosaur",
+  "14. 快速通關券4 - Race & Minecart",
+  "15. 快速通關券4 - XR Ride & Race",
+  "16. 快速通關券4 - Race & Thrills",
+  "17. 快速通關券4 - XR Ride & The Flying Dinosaur",
+  "18. 快速通關券4 - Backdrop & Choice",
+  "19. 快速通關券4 - Thrills & Selection",
+  "20. 快速通關券4 - XR Ride & Jurassic Park",
+  "21. 快速通關券4 - 逆轉世界",
+  "22. 快速通關券4 - Minecart & Hollywood Dream",
+  "23. 快速通關券4 - Flying Dinosaur & JAWS",
+  "24. 快速通關券4 - Space Fantasy & Race",
+  "25. 快速通關券4 - Flying Dinosaur & 4-D",
+  "26. 快速通關券4 - Flying Dinosaur & Jurassic Park",
+  "27. 快速通關券4 - One More Race & Ride Selection",
+  "28. 快速通關券4 - Race & JAWS"
+];
 
 const getExpressPassContent = (passName) => {
+  if (!passName) return [];
+  const indexStr = passName.split('.')[0];
+  const index = parseInt(indexStr);
+  const definition = EXPRESS_PASS_DEFINITIONS[index];
+  if (definition) {
+    return definition.map(item => ({
+      id: item.id,
+      timed: item.t,
+      choice: item.choice,
+      note: item.note
+    }));
+  }
   return [{ id: 'mario_kart', timed: true }];
 };
 
@@ -504,14 +597,10 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
 // --- Helper: Get Point on Image Relative (Robust) ---
 function getImageRelativePoint(e, imgEl) {
     const rect = imgEl.getBoundingClientRect();
-   
     const xPx = e.clientX - rect.left;
     const yPx = e.clientY - rect.top;
-   
-    // clamp：避免點到圖片外
     const cx = Math.min(Math.max(xPx, 0), rect.width);
     const cy = Math.min(Math.max(yPx, 0), rect.height);
-   
     return {
       x: (cx / rect.width) * 100,
       y: (cy / rect.height) * 100,
@@ -569,6 +658,13 @@ const parseGpxData = (xmlData) => {
     return parsed;
 };
 
+// --- Format Time Helper ---
+const formatTime = (mins) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
+
 // --- Main App Component ---
 
 export default function USJPlannerApp() {
@@ -583,7 +679,14 @@ export default function USJPlannerApp() {
     return localStorage.getItem('usj_api_key') || '';
   });
 
-  const [savedPlans, setSavedPlans] = useState(() => []);
+  const [savedPlans, setSavedPlans] = useState(() => {
+    try {
+      const saved = localStorage.getItem('usj_saved_plans');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
   const defaultFormData = {
     date: new Date().toISOString().split('T')[0],
@@ -601,7 +704,31 @@ export default function USJPlannerApp() {
     needsTaxRefund: false,
   };
 
-  const [formData, setFormData] = useState(defaultFormData);
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('usj_form_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed.expressPasses) {
+             return {
+                 ...parsed,
+                 expressPasses: [{ 
+                     id: Date.now(), 
+                     name: parsed.selectedExpressPass || '', 
+                     times: parsed.expressTimes || {} 
+                 }],
+                 planShopping: false,
+                 preferenceMode: 'thrill'
+             };
+        }
+        return { ...defaultFormData, ...parsed }; 
+      }
+      return defaultFormData;
+    } catch (e) {
+      return defaultFormData;
+    }
+  });
+  
   const [itinerary, setItinerary] = useState([]);
   
   // GPS States
@@ -611,7 +738,8 @@ export default function USJPlannerApp() {
   
   const [realGpsEnabled, setRealGpsEnabled] = useState(false);
   const [displayWeather, setDisplayWeather] = useState({ condition: 'sunny', temp: 15, text: '尚未取得天氣資訊' });
-  
+  const [mapImage, setMapImage] = useState(null); // 確保定義了 mapImage
+
   // Anchor / Debug Mode
   const [anchors, setAnchors] = useState(() => {
       const saved = localStorage.getItem('usj_anchors');
@@ -632,19 +760,31 @@ export default function USJPlannerApp() {
 
   // --- POI Data & Map Logic ---
   const [rawPois, setRawPois] = useState([]);
-  const [mappedPois, setMappedPois] = useState([]); // POIs with x, y calculated
-  const [selectedCategory, setSelectedCategory] = useState(null); // 'attraction', 'food', 'shop', 'service'
-  const [selectedPoiId, setSelectedPoiId] = useState(null); // Highlight specific POI
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false); // Mobile drawer for list
+  const [mappedPois, setMappedPois] = useState([]); 
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedPoiId, setSelectedPoiId] = useState(null);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
-  // Initial GPX Parse
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+
+  // Map Interaction State
+  const mapContainerRef = useRef(null);
+  const imgRef = useRef(null);
+  const [viewState, setViewState] = useState({ scale: 1, x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [startPan, setStartPan] = useState({ x: 0, y: 0 });
+
+  // --- Effects & Logic ---
+
+  // 1. 初始 GPX 解析
   useEffect(() => {
       const pois = parseGpxData(GPX_RAW_DATA);
       setRawPois(pois);
   }, []);
 
-  // Calculate Affine Matrix & Map POIs
-  // Note: static POIs still use global fit for stability
+  // 2. 計算全域仿射矩陣 (用於靜態 POI 的預設顯示)
   const mapTransformLogic = useMemo(() => {
        const centerLat = parkCenter.lat;
        const centerLng = parkCenter.lng;
@@ -658,7 +798,7 @@ export default function USJPlannerApp() {
        return { matrix, centerLat, centerLng };
   }, [anchors, parkCenter]);
 
-  // Update Mapped POIs whenever anchors change
+  // 3. 當錨點改變時，更新所有 POI 在地圖上的座標
   useEffect(() => {
       if (!mapTransformLogic.matrix || rawPois.length === 0) return;
 
@@ -670,7 +810,7 @@ export default function USJPlannerApp() {
           const x = a * local.x + b * local.y + c;
           const y = d * local.x + e * local.y + f;
 
-          // Determine Zone
+          // 簡單判定所屬區域 (Nearest Zone)
           let closestZoneId = 'hollywood';
           let minDist = Infinity;
           ZONES_DATA.forEach(zone => {
@@ -686,25 +826,31 @@ export default function USJPlannerApp() {
       setMappedPois(mapped);
   }, [rawPois, mapTransformLogic]);
 
-  // --- End POI Logic ---
+  // 4. 持久化儲存
+  useEffect(() => { localStorage.setItem('usj_api_key', userApiKey); }, [userApiKey]);
+  useEffect(() => { localStorage.setItem('usj_form_data', JSON.stringify(formData)); }, [formData]);
+  useEffect(() => { localStorage.setItem('usj_saved_plans', JSON.stringify(savedPlans)); }, [savedPlans]);
+  useEffect(() => { localStorage.setItem('usj_anchors', JSON.stringify(anchors)); }, [anchors]);
 
-  // Edit Modal State
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-
-  // Map Interaction State
-  const mapContainerRef = useRef(null);
-  const imgRef = useRef(null);
-  const [viewState, setViewState] = useState({ scale: 1, x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [startPan, setStartPan] = useState({ x: 0, y: 0 });
-
-  // Update Matrix when anchors change
+  // 5. 載入地圖
   useEffect(() => {
-      localStorage.setItem('usj_anchors', JSON.stringify(anchors));
-  }, [anchors]);
+      setMapImage(FIXED_MAP_SRC);
+  }, []);
 
-  // --- Request GPS Permission ---
+  // 6. GPS 權限檢查
+  useEffect(() => {
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' })
+        .then(result => {
+          setGpsPermission(result.state);
+          result.onchange = () => setGpsPermission(result.state);
+        })
+        .catch(() => setGpsPermission('prompt'));
+    } else {
+        setGpsPermission('prompt');
+    }
+  }, []);
+
   const requestGpsPermission = () => {
       if (!navigator.geolocation) {
           alert('此瀏覽器不支援 GPS');
@@ -716,35 +862,39 @@ export default function USJPlannerApp() {
               setRealGpsEnabled(true);
           },
           (err) => {
-              if (err.code === err.PERMISSION_DENIED) {
-                  setGpsPermission('denied');
-              }
+              if (err.code === err.PERMISSION_DENIED) setGpsPermission('denied');
               alert('GPS 請求失敗: ' + err.message);
           },
           { enableHighAccuracy: true }
       );
   };
 
-  // --- GPS Tracking Logic (UPDATED TO LOCAL FIT) ---
+  // --- 7. GPS 追蹤邏輯 (使用局部加權矩陣 Local Affine) ---
   useEffect(() => {
     let watchId;
     if (realGpsEnabled && currentView === 'map') {
+        if (!navigator.geolocation) {
+            setRealGpsEnabled(false);
+            return;
+        }
+        
         watchId = navigator.geolocation.watchPosition(
             (position) => {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
                 const acc = position.coords.accuracy;
+                
                 setLastGpsFix({ lat, lng, acc });
                 setGpsRaw({ lat, lng, acc });
 
-                // 使用 Local Affine Matrix 邏輯
+                // 核心：建立局部矩陣
                 const localFit = buildLocalAffineMatrix({
-                    userLat: lat,
-                    userLng: lng,
-                    anchors, // 使用當前最新的錨點列表
-                    N: 8,
-                    useAccuracyWeight: true,
-                    useDistanceWeight: true
+                  userLat: lat,
+                  userLng: lng,
+                  anchors,
+                  N: 8,
+                  useAccuracyWeight: true,
+                  useDistanceWeight: true
                 });
 
                 if (!localFit) return;
@@ -752,27 +902,33 @@ export default function USJPlannerApp() {
                 const { matrix, centerLat, centerLng } = localFit;
                 const projected = applyAffine({ lat, lng, centerLat, centerLng, matrix });
                 
-                // Clamp
                 const cx = Math.min(Math.max(projected.x, 0), 100);
                 const cy = Math.min(Math.max(projected.y, 0), 100);
                 
                 setGpsXY({ x: cx, y: cy });
             },
-            (error) => console.error(error),
+            (error) => {
+                console.error("GPS Error:", error);
+                if (error.code === error.PERMISSION_DENIED) {
+                    setGpsPermission('denied');
+                    setRealGpsEnabled(false);
+                }
+            },
             { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
         );
     }
-    return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
-  }, [realGpsEnabled, currentView, anchors]); // Updated dependencies
+    return () => {
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [realGpsEnabled, currentView, anchors]);
 
-  // Handlers
+  // --- Handlers (CRUD & Form) ---
   const handleInputChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
   const addExpressPass = () => setFormData(prev => ({ ...prev, expressPasses: [...prev.expressPasses, { id: Date.now(), name: '', times: {} }] }));
   const removeExpressPass = (id) => setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.filter(p => p.id !== id) }));
   const updateExpressPassName = (id, newName) => setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.map(p => p.id === id ? { ...p, name: newName, times: {} } : p) }));
   const updateExpressPassTime = (passId, attractionId, time) => setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.map(p => p.id === passId ? { ...p, times: { ...p.times, [attractionId]: time } } : p) }));
 
-  // CRUD
   const handleEditItem = (item) => { setEditingItem(item); setIsEditModalOpen(true); };
   const handleAddItem = () => { setEditingItem(null); setIsEditModalOpen(true); };
   const handleSaveItem = (newItem) => {
@@ -796,14 +952,158 @@ export default function USJPlannerApp() {
     setSavedPlans(prev => [newPlan, ...prev]);
     alert('行程已儲存！');
   };
-  
+  const loadPlan = (plan) => {
+    setFormData(plan.formData);
+    setItinerary(Array.isArray(plan.itinerary) ? plan.itinerary : (plan.itineraryMap?.sunny || []));
+    setDisplayWeather(plan.weather || { condition: 'sunny', temp: 15 });
+    setCurrentView('plan');
+  };
+  const deletePlan = (id) => {
+    if (window.confirm('確定要刪除?')) setSavedPlans(prev => prev.filter(p => p.id !== id));
+  };
   const resetAnchors = () => {
-      if(window.confirm("確定要重置所有校正點嗎？")) {
-          setAnchors(DEFAULT_ANCHORS);
+      if(window.confirm("確定要重置所有校正點嗎？")) setAnchors(DEFAULT_ANCHORS);
+  };
+
+  // --- AI Logic (Gemini API Integration) ---
+  const callGeminiAPI = async () => {
+      const activeKey = userApiKey || apiKey;
+      if (!activeKey) { setErrorMsg("請輸入 API Key"); return; }
+      setIsGenerating(true);
+      setErrorMsg('');
+      try {
+        const selectedDate = new Date(formData.date);
+        const dayOfWeek = selectedDate.getDay();
+        let dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'weekday';
+        if (formData.date.endsWith('12-25') || formData.date.endsWith('12-31')) dayType = 'holiday';
+        const year = selectedDate.getFullYear();
+        const month = selectedDate.getMonth() + 1; 
+        const forecastUrl = `https://usjreal.asumirai.info/monthly/usj-forecast-${year}-${month}.html`;
+
+        let allExpressPassDetails = [];
+        if (formData.hasExpress && formData.expressPasses.length > 0) {
+            allExpressPassDetails = formData.expressPasses.map((pass, index) => {
+                if (!pass.name) return null;
+                return {
+                    passId: index + 1, 
+                    name: pass.name,
+                    content: getExpressPassContent(pass.name).map(item => ({
+                        id: item.id,
+                        name: ATTRACTIONS.find(a => a.id === item.id)?.name || item.id,
+                        isFixedTime: item.timed,
+                        fixedTime: item.timed ? pass.times[item.id] : null,
+                        choiceGroup: item.choice 
+                    }))
+                };
+            }).filter(Boolean); 
+        }
+
+        const contextData = {
+            date: formData.date,
+            dayType: dayType,
+            ticketDuration: formData.duration,
+            expressPasses: allExpressPassDetails.length > 0 ? allExpressPassDetails : "None",
+            preferences: {
+                nintendoEntry: formData.nintendoEntryTime,
+                hasJCB: formData.hasJCB,
+                jcbReservationTime: formData.jcbTime, 
+                needsTaxRefund: formData.needsTaxRefund,
+                needsFood: formData.needsFood,
+                planShopping: formData.planShopping, 
+                preferenceMode: formData.preferenceMode, 
+                endTime: formData.endTime, 
+                special: formData.specialRequest
+            },
+            attractions: ATTRACTIONS.map(a => ({
+                id: a.id,
+                name: a.name,
+                zone: a.zone,
+                type: a.type,
+                wait: a.wait[dayType],
+                duration: a.duration,
+                thrillLevel: a.thrill 
+            })),
+            facilityDatabase: FACILITY_DATABASE, 
+            dataSources: {
+                crowdForecastUrl: forecastUrl,
+                officialScheduleUrl: "https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule"
+            }
+        };
+
+        const systemPrompt = `
+          你是一位環球影城 (USJ) 的行程規劃專家。
+          任務：
+          1. 搜尋 ${formData.date} 的精確天氣與營業資訊。
+          2. 根據天氣預報、人流預測與使用者偏好，產生**唯一最佳**的行程表。
+          
+          核心規劃邏輯 (${formData.preferenceMode})：
+          1. thrill: 優先飛天翼龍、好萊塢美夢。
+          2. gentle: 避開暈眩設施。
+          3. family: 優先環球奇境、小小兵。
+
+          資料檢索：
+          1. 營業時間：從 ${forecastUrl} 找出開閉園時間。
+          2. 天氣：搜尋當日天氣，雨天避開戶外。
+          3. 運休：排除休止設施。
+
+          格式：JSON
+          {
+            "weatherSummary": "...",
+            "itinerary": [
+                { "start": "HH:MM", "end": "HH:MM", "name": "...", "type": "ride", "zoneId": "...", "wait": 20, "duration": 5, "description": "..." }
+            ]
+          }
+        `;
+
+        const userPrompt = `請根據以下資料規劃行程：${JSON.stringify(contextData)}。JSON回應必須包含 weatherSummary 和 itinerary。`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                tools: [{ google_search: {} }],
+                generationConfig: { responseMimeType: "application/json" }
+            })
+        });
+
+        if (!response.ok) throw new Error("API Request Failed");
+        const data = await response.json();
+        let generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!generatedText) throw new Error("No data generated");
+        generatedText = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const resultObj = JSON.parse(generatedText);
+        
+        const processItinerary = (list) => {
+            if (!list || !Array.isArray(list)) return [];
+            return list.map(item => {
+                const [sh, sm] = item.start.split(':').map(Number);
+                const startMins = sh * 60 + sm;
+                return {
+                    ...item,
+                    start: startMins,
+                    zone: ZONES_MAP[item.zoneId] || null 
+                };
+            });
+        };
+
+        setItinerary(processItinerary(resultObj.itinerary));
+        setDisplayWeather({
+            condition: resultObj.weatherSummary?.includes('雨') ? 'rainy' : 'sunny',
+            text: resultObj.weatherSummary || '天氣資訊已更新'
+        });
+        setCurrentView('plan');
+      } catch (e) { 
+          console.error(e);
+          setErrorMsg(e.message);
+          setIsGenerating(false); 
+      } finally {
+          setIsGenerating(false);
       }
   };
 
-  // Map Interaction Handlers
+  // --- Map Interaction Handlers ---
   const handleZoom = (direction) => setViewState(prev => ({ ...prev, scale: Math.min(Math.max(prev.scale + (direction * 0.5), 1), 5) }));
   const handleResetMap = () => setViewState({ scale: 1, x: 0, y: 0 });
   const onMouseDown = (e) => { setIsDragging(true); setStartPan({ x: e.clientX - viewState.x, y: e.clientY - viewState.y }); };
@@ -813,11 +1113,14 @@ export default function USJPlannerApp() {
   const onTouchMove = (e) => { if (!isDragging || e.touches.length !== 1) return; setViewState(prev => ({ ...prev, x: e.touches[0].clientX - startPan.x, y: e.touches[0].clientY - startPan.y })); };
   const onTouchEnd = () => setIsDragging(false);
 
+  // Add Anchor Logic
   const handleMapClick = (e) => {
       if (!isAddAnchorMode) return;
       if (!imgRef.current) return;
+
       const p = getImageRelativePoint(e, imgRef.current);
       if (!p) return;
+
       const currentGps = lastGpsFix || gpsRaw;
       const name = prompt("請輸入此校正點名稱：");
       if (name) {
@@ -830,16 +1133,16 @@ export default function USJPlannerApp() {
               lng: currentGps ? currentGps.lng : null
           }]);
           setIsAddAnchorMode(false);
-          alert(`校正點已新增！`);
+          alert(`校正點已新增！(x:${p.x.toFixed(1)}, y:${p.y.toFixed(1)})`);
       }
   };
 
-  // --- Render Helpers for POI List ---
+  // --- Render Functions ---
+
   const renderPoiList = () => {
       if (!selectedCategory) return null;
       
       const filtered = mappedPois.filter(p => p.category === selectedCategory);
-      // Group by Zone
       const grouped = {};
       ZONES_DATA.forEach(z => grouped[z.id] = []);
       filtered.forEach(p => {
@@ -871,8 +1174,7 @@ export default function USJPlannerApp() {
                                         key={poi.id}
                                         onClick={() => {
                                             setSelectedPoiId(poi.id);
-                                            // Center map on this item (Simple logic)
-                                            // Ideally we animate viewState, here we just mark it
+                                            // 可考慮點擊後平移地圖至該點 (此處僅標記)
                                         }}
                                         className={`text-left p-2 rounded hover:bg-blue-50 text-sm flex justify-between items-center ${selectedPoiId === poi.id ? 'bg-blue-100 ring-1 ring-blue-500' : ''}`}
                                      >
@@ -897,19 +1199,165 @@ export default function USJPlannerApp() {
         <p className="opacity-90 text-sm">輸入您的需求，AI 為您客製化最佳攻略</p>
       </div>
       <div className="px-4 space-y-4">
-        {/* Same Home UI */}
+        {/* API Key */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-100">
            <label className="block text-sm font-bold text-blue-800 mb-2 flex items-center gap-2"><Key size={16} /> Gemini API Key</label>
            <input type="password" value={userApiKey} onChange={(e) => setUserApiKey(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-blue-50 focus:ring-2 focus:ring-blue-500 outline-none"/>
         </div>
+        {/* Date */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><Calendar size={18} /> 入園日期</label>
           <input type="date" value={formData.date} onChange={(e) => handleInputChange('date', e.target.value)} className="w-full p-2 border rounded-lg"/>
         </div>
         
-        <button onClick={() => setCurrentView('map')} className="w-full py-4 rounded-xl font-bold shadow-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 flex justify-center items-center gap-2">進入地圖模式</button>
+        {/* Preference Mode */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><HeartPulse size={18} /> 設施安排取向</label>
+            <div className="grid grid-cols-1 gap-2">
+                <button onClick={() => handleInputChange('preferenceMode', 'thrill')} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${formData.preferenceMode === 'thrill' ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <div className="text-left"><div className="text-sm font-bold flex items-center gap-2"><Zap size={14}/> 不怕暈要刺激 (Thrill)</div></div>
+                </button>
+                <button onClick={() => handleInputChange('preferenceMode', 'gentle')} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${formData.preferenceMode === 'gentle' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <div className="text-left"><div className="text-sm font-bold flex items-center gap-2"><Coffee size={14}/> 怕暈別太刺激 (Gentle)</div></div>
+                </button>
+                <button onClick={() => handleInputChange('preferenceMode', 'family')} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${formData.preferenceMode === 'family' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <div className="text-left"><div className="text-sm font-bold flex items-center gap-2"><Baby size={14}/> 親子路線 (Family)</div></div>
+                </button>
+            </div>
+        </div>
+
+        {/* Express Pass */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <label className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-700 flex items-center gap-2"><Clock size={18} /> 快速通關券</span>
+            <input type="checkbox" checked={formData.hasExpress} onChange={(e) => handleInputChange('hasExpress', e.target.checked)} className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"/>
+          </label>
+          {formData.hasExpress && (
+            <div className="mt-3 space-y-4 animate-fade-in">
+              {formData.expressPasses.map((pass, index) => (
+                  <div key={pass.id} className="p-3 border rounded-lg bg-gray-50 relative group">
+                      <div className="flex justify-between items-center mb-2">
+                          <span className="text-xs font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded">第 {index + 1} 張快通</span>
+                          <button onClick={() => removeExpressPass(pass.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                      </div>
+                      <select value={pass.name} onChange={(e) => updateExpressPassName(pass.id, e.target.value)} className="w-full p-2 text-sm border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 mb-3">
+                        <option value="">-- 請選擇快通版本 --</option>
+                        {EXPRESS_PASS_RAW.map((p, idx) => (<option key={idx} value={p}>{p.split('-')[1] || p}</option>))}
+                      </select>
+                      {pass.name && (
+                        <div className="pl-2 border-l-2 border-blue-200 space-y-2">
+                          {getExpressPassContent(pass.name).filter(i => i.timed).map(item => {
+                            const attr = ATTRACTIONS.find(a => a.id === item.id);
+                            return (
+                              <div key={item.id} className="flex items-center justify-between">
+                                <span className="text-xs text-gray-700 font-medium">{attr?.name}{item.choice && '*'}</span>
+                                <input type="time" value={pass.times[item.id] || ''} onChange={(e) => updateExpressPassTime(pass.id, item.id, e.target.value)} className="text-xs p-1.5 border rounded bg-white w-24"/>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                  </div>
+              ))}
+              <button onClick={addExpressPass} className="w-full py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-50"><PlusCircle size={16}/> 新增</button>
+            </div>
+          )}
+        </div>
+
+        {/* Other Options */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
+           {!formData.hasExpress && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">任天堂整理券時段</label>
+              <select value={formData.nintendoEntryTime} onChange={(e) => handleInputChange('nintendoEntryTime', e.target.value)} className="w-full p-2 border rounded-lg text-sm">
+                <option value="morning">早上 (09:00 - 12:00)</option>
+                <option value="afternoon">下午 (13:00 - 16:00)</option>
+                <option value="evening">晚上 (17:00 後)</option>
+              </select>
+            </div>
+          )}
+           <div className="border-t pt-2 mt-2">
+              <label className="flex items-center gap-2 mb-2">
+                 <input type="checkbox" checked={formData.hasJCB} onChange={(e) => handleInputChange('hasJCB', e.target.checked)} className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
+                 <span className="text-sm font-medium text-gray-700 flex items-center gap-1"><CreditCard size={16}/> 持有 JCB 極致卡</span>
+              </label>
+              {formData.hasJCB && (
+                  <div className="bg-blue-50 p-3 rounded-lg ml-6 space-y-2 animate-fade-in border border-blue-100">
+                      <div className="flex items-center justify-between pt-1">
+                          <span className="text-xs font-bold text-gray-700">預約時間：</span>
+                          <input type="time" value={formData.jcbTime || ''} onChange={(e) => handleInputChange('jcbTime', e.target.value)} className="text-xs p-1.5 border rounded bg-white w-24"/>
+                      </div>
+                  </div>
+              )}
+           </div>
+           <label className="flex items-center gap-2"><input type="checkbox" checked={formData.planShopping} onChange={(e) => handleInputChange('planShopping', e.target.checked)} /><span className="text-sm">特地規劃購物行程</span></label>
+           <label className="flex items-center gap-2"><input type="checkbox" checked={formData.needsTaxRefund} onChange={(e) => handleInputChange('needsTaxRefund', e.target.checked)} /><span className="text-sm">需要退稅</span></label>
+           <label className="flex items-center gap-2"><input type="checkbox" checked={formData.needsFood} onChange={(e) => handleInputChange('needsFood', e.target.checked)} /><span className="text-sm">包含餐廳推薦</span></label>
+           <div className="pt-2 border-t mt-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">特別要求</label>
+            <textarea value={formData.specialRequest} onChange={(e) => handleInputChange('specialRequest', e.target.value)} placeholder="例如：想看遊行..." className="w-full p-2 text-sm border rounded-lg h-20"/>
+          </div>
+        </div>
+
+        {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2"><AlertCircle size={16}/> {errorMsg}</div>}
+
+        <button onClick={callGeminiAPI} disabled={isGenerating} className={`w-full py-4 rounded-xl font-bold shadow-lg text-white transition-all flex justify-center items-center gap-2 ${isGenerating ? 'bg-gray-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600'}`}>{isGenerating ? '規劃中...' : '開始 AI 智能規劃'}</button>
       </div>
     </div>
+  );
+
+  const renderItinerary = () => (
+      <div className="pb-24">
+         <div className="bg-white sticky top-0 z-10 shadow-sm p-4 flex justify-between items-center">
+             <h2 className="font-bold text-lg flex items-center gap-2"><Sparkles size={18} className="text-yellow-500"/> 專屬攻略</h2>
+             <div className="flex gap-2">
+                 <button onClick={callGeminiAPI} className="p-2 bg-blue-100 rounded-full text-blue-600"><RefreshCw size={20}/></button>
+                 <button onClick={saveCurrentPlan} className="p-2 bg-green-100 rounded-full text-green-600"><Save size={20}/></button>
+                 <button onClick={() => setCurrentView('map')} className="p-2 bg-gray-100 rounded-full text-blue-600"><MapIcon size={20}/></button>
+                 <button onClick={() => setCurrentView('home')} className="p-2 bg-gray-100 rounded-full text-gray-600"><Settings size={20}/></button>
+             </div>
+         </div>
+         <div className="px-4 py-2 text-center text-xs text-gray-500 bg-blue-50 border-b border-blue-100 mb-4 flex items-center justify-center gap-2">
+             {displayWeather.condition === 'rainy' ? <Umbrella size={14}/> : <Sun size={14}/>} {displayWeather.text}
+         </div>
+         <div className="px-4 relative">
+             <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+             {itinerary.length === 0 ? <div className="text-center py-10 text-gray-400 text-sm">尚未有行程</div> : itinerary.map((item, idx) => (
+                 <div key={idx} className="flex gap-4 mb-6 relative group" onClick={() => handleEditItem(item)}>
+                     <div className="w-12 flex-shrink-0 flex flex-col items-center z-10">
+                         <div className={`w-3 h-3 rounded-full mb-1 ${item.type === 'express' ? 'bg-yellow-400' : 'bg-blue-500'}`}></div>
+                         <span className="text-xs font-bold text-gray-500">{formatTime(item.start)}</span>
+                     </div>
+                     <div className="flex-1 p-3 rounded-xl shadow-sm border-l-4 bg-white border-blue-500 relative cursor-pointer">
+                         <div className="flex justify-between items-start">
+                             <h3 className="font-bold text-gray-800 text-sm">{item.name}</h3>
+                             <button onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
+                         </div>
+                         <div className="mt-2 text-xs text-gray-500">{item.description}</div>
+                     </div>
+                 </div>
+             ))}
+             <button onClick={handleAddItem} className="w-full py-3 mt-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold flex items-center justify-center gap-2"><Plus size={20}/> 新增自訂行程</button>
+         </div>
+      </div>
+  );
+
+  const renderSavedPlans = () => (
+      <div className="p-4 space-y-4">
+          <h2 className="font-bold text-lg mb-4">我的行程</h2>
+          {savedPlans.length === 0 ? <div className="text-center text-gray-400">尚無儲存的行程</div> : savedPlans.map(plan => (
+              <div key={plan.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center" onClick={() => loadPlan(plan)}>
+                  <div>
+                      <div className="font-bold">{plan.name}</div>
+                      <div className="text-xs text-gray-500">{plan.timestamp}</div>
+                  </div>
+                  <div className="flex gap-2">
+                      <button className="text-blue-600 p-2"><ArrowRight size={20}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); deletePlan(plan.id); }} className="text-red-600 p-2"><Trash2 size={20}/></button>
+                  </div>
+              </div>
+          ))}
+      </div>
   );
 
   const renderMap = () => (
@@ -922,6 +1370,7 @@ export default function USJPlannerApp() {
                 <button onClick={() => { if (gpsPermission === 'denied') alert('GPS blocked'); else requestGpsPermission(); }} className={`p-1.5 rounded-full text-xs flex items-center gap-1 ${realGpsEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
                     <Locate size={14}/> {realGpsEnabled ? 'GPS ON' : 'GPS'}
                 </button>
+                <button onClick={() => setCurrentView('plan')} className="text-blue-600 text-sm font-bold">列表</button>
             </div>
         </div>
         {/* Categories */}
@@ -961,7 +1410,6 @@ export default function USJPlannerApp() {
                 display: 'inline-block' 
             }}
         >
-            {/* Content Wrapper - Image + SVG */}
             <div className="relative shadow-2xl bg-white inline-block">
                 <img 
                     ref={imgRef}
@@ -975,7 +1423,6 @@ export default function USJPlannerApp() {
                     }}
                 />
 
-                {/* Interactive Overlay Layer */}
                 <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${isAddAnchorMode ? 'cursor-crosshair' : 'pointer-events-none'}`} onClick={handleMapClick}>
                     {/* Zones (Background Labels) */}
                     {ZONES_DATA.map(zone => (
@@ -1040,7 +1487,9 @@ export default function USJPlannerApp() {
   return (
     <div className="max-w-md mx-auto h-screen bg-gray-50 overflow-y-auto font-sans text-gray-800 relative">
       {currentView === 'home' && renderHome()}
+      {currentView === 'plan' && renderItinerary()}
       {currentView === 'map' && renderMap()}
+      {currentView === 'saved' && renderSavedPlans()}
       
       <EditModal 
         isOpen={isEditModalOpen} 
@@ -1050,11 +1499,14 @@ export default function USJPlannerApp() {
       />
 
       <div className="fixed bottom-0 max-w-md w-full bg-white border-t border-gray-200 flex justify-around py-3 text-xs text-gray-500 z-50">
-          <button onClick={() => setCurrentView('home')} className={`flex flex-col items-center gap-1 ${currentView === 'home' ? 'text-blue-600' : ''}`}>
-              <Settings size={20}/> 設定
+          <button onClick={() => setCurrentView('plan')} className={`flex flex-col items-center gap-1 ${currentView === 'plan' ? 'text-blue-600' : ''}`}>
+              <Clock size={20}/> 行程
           </button>
           <button onClick={() => setCurrentView('map')} className={`flex flex-col items-center gap-1 ${currentView === 'map' ? 'text-blue-600' : ''}`}>
               <MapIcon size={20}/> 地圖
+          </button>
+          <button onClick={() => setCurrentView('saved')} className={`flex flex-col items-center gap-1 ${currentView === 'saved' ? 'text-blue-600' : ''}`}>
+              <FolderOpen size={20}/> 我的行程
           </button>
       </div>
     </div>
