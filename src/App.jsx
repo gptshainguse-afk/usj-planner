@@ -5,10 +5,9 @@ import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircl
 const apiKey = ""; // 預覽環境會自動注入 Key
 
 // --- 地圖設定 ---
-const FIXED_MAP_SRC = "/usj_map.jpg"; // 請確保 public 資料夾有此圖片
+const FIXED_MAP_SRC = "/usj_map.jpg"; 
 
-// --- 區域資料 (視覺座標 x,y) ---
-// 根據您的最新校正更新
+// --- 區域資料 ---
 const ZONES_DATA = [
   { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, color: '#fca5a5' },
   { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, color: '#93c5fd' },
@@ -48,88 +47,94 @@ const DEFAULT_ANCHORS = [
 ];
 
 
-// --- 演算法：最小平方法求解仿射變換矩陣 ---
-function solveLeastSquares(anchors) {
-    const n = anchors.length;
-    if (n < 3) return null; 
+// --- 數學工具函式 ---
 
-    let sumLat = 0, sumLng = 0, sumLat2 = 0, sumLng2 = 0, sumLatLng = 0;
-    let sumX = 0, sumY = 0, sumXLat = 0, sumXLng = 0, sumYLat = 0, sumYLng = 0;
+// 1. 計算兩點間距離 (公尺)
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
-    for (const p of anchors) {
-        if (p.lat == null || p.lng == null) continue;
-        sumLat += p.lat;
-        sumLng += p.lng;
-        sumLat2 += p.lat * p.lat;
-        sumLng2 += p.lng * p.lng;
-        sumLatLng += p.lat * p.lng;
+// 2. 經緯度轉平面公尺座標 (Local Tangent Plane Approximation)
+// lat0, lng0 為參考原點
+function llToLocalMeters(lat, lng, lat0, lng0) {
+  const R = 6378137; // WGS84 Earth Radius
+  const toRad = d => d * Math.PI / 180;
+  const x = (toRad(lng - lng0)) * R * Math.cos(toRad(lat0));
+  const y = (toRad(lat - lat0)) * R;
+  return { x, y };
+}
 
-        sumX += p.x;
-        sumY += p.y;
-        sumXLat += p.x * p.lat;
-        sumXLng += p.x * p.lng;
-        sumYLat += p.y * p.lat;
-        sumYLng += p.y * p.lng;
+// 3. 加權最小平方法 (Weighted Least Squares) 求解仿射矩陣
+// inputs: array of { localX, localY, mapX, mapY, weight }
+// returns: { a, b, c, d, e, f } for:
+// mapX = a*localX + b*localY + c
+// mapY = d*localX + e*localY + f
+function solveWeightedLeastSquares(points) {
+    let sumW = 0;
+    let sumWX = 0, sumWY = 0;
+    let sumWXX = 0, sumWXY = 0, sumWYY = 0;
+    let sumWMapX = 0, sumWMapY = 0;
+    let sumWXMapX = 0, sumWYMapX = 0;
+    let sumWXMapY = 0, sumWYMapY = 0;
+
+    for (const p of points) {
+        const w = p.weight;
+        sumW += w;
+        sumWX += w * p.localX;
+        sumWY += w * p.localY;
+        sumWXX += w * p.localX * p.localX;
+        sumWXY += w * p.localX * p.localY;
+        sumWYY += w * p.localY * p.localY;
+        
+        sumWMapX += w * p.mapX;
+        sumWMapY += w * p.mapY;
+        sumWXMapX += w * p.localX * p.mapX;
+        sumWYMapX += w * p.localY * p.mapX;
+        sumWXMapY += w * p.localX * p.mapY;
+        sumWYMapY += w * p.localY * p.mapY;
     }
 
-    const a00 = sumLat2, a01 = sumLatLng, a02 = sumLat;
-    const a10 = sumLatLng, a11 = sumLng2, a12 = sumLng;
-    const a20 = sumLat, a21 = sumLng, a22 = n;
+    // Solving Linear System for X axis (a, b, c)
+    // | sumWXX  sumWXY  sumWX | | a |   | sumWXMapX |
+    // | sumWXY  sumWYY  sumWY | | b | = | sumWYMapX |
+    // | sumWX   sumWY   sumW  | | c |   | sumWMapX  |
 
-    const det = a00 * (a11 * a22 - a12 * a21) -
-                a01 * (a10 * a22 - a12 * a20) +
-                a02 * (a10 * a21 - a11 * a20);
-
-    if (Math.abs(det) < 1e-12) return null;
+    const det = sumWXX * (sumWYY * sumW - sumWY * sumWY) -
+                sumWXY * (sumWXY * sumW - sumWY * sumWX) +
+                sumWX  * (sumWXY * sumWY - sumWYY * sumWX);
+    
+    if (Math.abs(det) < 1e-12) return null; // Singular
 
     const invDet = 1 / det;
-    const i00 = (a11 * a22 - a12 * a21) * invDet;
-    const i01 = (a02 * a21 - a01 * a22) * invDet;
-    const i02 = (a01 * a12 - a02 * a11) * invDet;
-    const i10 = (a12 * a20 - a10 * a22) * invDet;
-    const i11 = (a00 * a22 - a02 * a20) * invDet;
-    const i12 = (a02 * a10 - a00 * a12) * invDet;
-    const i20 = (a10 * a21 - a11 * a20) * invDet;
-    const i21 = (a01 * a20 - a00 * a21) * invDet;
-    const i22 = (a00 * a11 - a01 * a10) * invDet;
 
-    const a = i00 * sumXLat + i01 * sumXLng + i02 * sumX;
-    const b = i10 * sumXLat + i11 * sumXLng + i12 * sumX;
-    const c = i20 * sumXLat + i21 * sumXLng + i22 * sumX;
+    // Cofactors for inversion (simplified for 3x3 symmetric)
+    const m00 = (sumWYY * sumW - sumWY * sumWY) * invDet;
+    const m01 = (sumWX * sumWY - sumWXY * sumW) * invDet;
+    const m02 = (sumWXY * sumWY - sumWYY * sumWX) * invDet;
+    // m10 = m01
+    const m11 = (sumWXX * sumW - sumWX * sumWX) * invDet;
+    const m12 = (sumWXY * sumWX - sumWXX * sumWY) * invDet;
+    // m20 = m02, m21 = m12
+    const m22 = (sumWXX * sumWYY - sumWXY * sumWXY) * invDet;
 
-    const d = i00 * sumYLat + i01 * sumYLng + i02 * sumY;
-    const e = i10 * sumYLat + i11 * sumYLng + i12 * sumY;
-    const f = i20 * sumYLat + i21 * sumYLng + i22 * sumY;
+    // Solve for a, b, c
+    const a = m00 * sumWXMapX + m01 * sumWYMapX + m02 * sumWMapX;
+    const b = m01 * sumWXMapX + m11 * sumWYMapX + m12 * sumWMapX;
+    const c = m02 * sumWXMapX + m12 * sumWYMapX + m22 * sumWMapX;
+
+    // Solve for d, e, f (using same inverse matrix but different RHS vector)
+    const d = m00 * sumWXMapY + m01 * sumWYMapY + m02 * sumWMapY;
+    const e = m01 * sumWXMapY + m11 * sumWYMapY + m12 * sumWMapY;
+    const f = m02 * sumWXMapY + m12 * sumWYMapY + m22 * sumWMapY;
 
     return { a, b, c, d, e, f };
 }
 
-const projectWithMatrix = (lat, lng, matrix) => {
-    if (!matrix) return { x: 50, y: 50 };
-    const { a, b, c, d, e, f } = matrix;
-    const x = a * lat + b * lng + c;
-    const y = d * lat + e * lng + f;
-    return { x, y };
-};
-
-// --- Helper: Get Point on Image Percent (Robust) ---
-function getImageRelativePoint(e, imgEl) {
-    const rect = imgEl.getBoundingClientRect();
-  
-    const xPx = e.clientX - rect.left;
-    const yPx = e.clientY - rect.top;
-  
-    // clamp：避免點到圖片外
-    const cx = Math.min(Math.max(xPx, 0), rect.width);
-    const cy = Math.min(Math.max(yPx, 0), rect.height);
-  
-    return {
-      x: (cx / rect.width) * 100,
-      y: (cy / rect.height) * 100,
-      px: cx,
-      py: cy
-    };
-}
 
 // ... (Attractions and Facility Database)
 const ATTRACTIONS = [
@@ -152,166 +157,24 @@ const ATTRACTIONS = [
   { id: 'waterworld_show', name: '水世界表演', zone: 'waterworld', type: 'show', wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show' },
 ];
 
-// 完整設施清單 (158項)
 const FACILITY_DATABASE = [
   {id:1,name:"1UP工廠™",desc:"有許多在別的地方買不到的周邊商品！",type:"shop"},
-  {id:2,name:"4-D電影商品屋",desc:"想找期間限定的活動周邊商品，就在這裡！",type:"shop"},
-  {id:3,name:"25週年「Discover U!!!」",desc:"日本環球影城25週年活動。",type:"event"},
-  {id:4,name:"艾比的魔法派對",desc:"艾比施展魔法的大廳裡，有巨大星星的積木或球。",type:"play_area"},
-  {id:5,name:"艾比的魔法樹",desc:"往大樹裡面一看，裡面展現的是非常有趣的攀登架！",type:"play_area"},
-  {id:6,name:"艾蒙的GO-GO滑板",desc:"和艾蒙一起乘坐滑板，痛快地在斜坡上奔馳！",type:"ride"},
-  {id:7,name:"艾蒙的泡泡遨遊",desc:"騎上寵物金魚，在充滿肥皂泡泡的河裡，悠閒地進行水上散步。",type:"ride"},
-  {id:8,name:"艾蒙的小兜風",desc:"如果是這個賽車場，即使是3歲的小朋友，也能駕駛得有模有樣。",type:"ride"},
-  {id:9,name:"奧利凡德的商店™",desc:"體驗「魔杖選擇巫師」的經典場景。",type:"shop_experience"},
-  {id:10,name:"海格的小屋™",desc:"真實再現了海格的家。",type:"photo_spot"},
-  {id:11,name:"青蛙慶典",desc:"伴隨著好聽的歌曲，青蛙們展現美妙的合聲。",type:"show"},
-  {id:12,name:"鷹馬的飛行™",desc:"與魔法世界的生物鹰馬一同翱翔天空，適合全家人的雲霄飛車。",type:"ride"},
-  {id:13,name:"活米村車站™",desc:"霍格華茲特快車的發車站。",type:"photo_spot"},
+  {id:12,name:"鷹馬的飛行™",desc:"適合全家人的雲霄飛車。",type:"ride"},
   {id:14,name:"三根掃帚™",desc:"活米村的老字號酒館。",type:"restaurant"},
-  {id:15,name:"豬頭酒吧",desc:"散發著詭異氛圍的酒吧，就在「三根掃帚」隔壁。",type:"restaurant"},
-  {id:16,name:"蜂蜜公爵™",desc:"霍格華茲魔法與巫術學院的學生們最喜歡的糖果店。",type:"shop"},
-  {id:17,name:"貓頭鷹郵局™ & 貓頭鷹屋",desc:"除了有販賣活米村的郵票與文具外，還能由這裡寄信。",type:"shop"},
-  {id:18,name:"桑科™的「惡作劇商品店」",desc:"惡作劇商品店。",type:"shop"},
-  {id:19,name:"德維與班吉™",desc:"活米村的魔法道具店。",type:"shop"},
-  {id:20,name:"費爾奇沒收品百貨店™",desc:"霍格華茲魔法與巫術學院的管理員飛七從違反校規的學生們沒收來的寶物。",type:"shop"},
-  {id:21,name:"高級巫師服飾店",desc:"在這裡可以買到霍格華茲魔法與巫術學院的長袍及領帶等。",type:"shop"},
+  {id:16,name:"蜂蜜公爵™",desc:"糖果店。",type:"shop"},
   {id:22,name:"飛天翼龍",desc:"世界最長×世界最大高低差的最新型雲霄飛車。",type:"ride"},
-  {id:23,name:"侏羅紀公園・乘船遊™",desc:"為了探尋恐龍，在熱帶雨林進行探險。",type:"ride"},
-  {id:24,name:"新發現餐廳™",desc:"這是在電影《侏羅紀公園》中登場的遊客中心。",type:"restaurant"},
-  {id:25,name:"失落的世界餐廳™",desc:"位於叢林中被秘密覆蓋的餐廳。",type:"restaurant"},
-  {id:26,name:"侏羅紀專賣店™",desc:"能滿足粉絲的各種周邊商品，種類豐富。",type:"shop"},
-  {id:27,name:"小小兵瘋狂乘車遊",desc:"搭乘特製飛車，進入格魯的實驗室。",type:"ride"},
-  {id:28,name:"冰凍雷射光乘船遊",desc:"搭乘格魯發明的飛車，在冰上滑行！",type:"ride"},
-  {id:29,name:"美味我也要！小小兵餅乾店",desc:"製作小小兵最愛的夾心餅乾。",type:"restaurant"},
-  {id:30,name:"小小兵流行商店",desc:"對於時尚非常敏感的小小兵們提議的流行商品專賣店。",type:"shop"},
-  {id:31,name:"甜蜜俘虜商店",desc:"這家粉紅色的店，對於喜愛甜食的人來說是無法抗拒的！",type:"shop"},
-  {id:32,name:"小小兵粉絲商店",desc:"小小兵的粉絲們聚集的商店。",type:"shop"},
-  {id:33,name:"快樂咖啡廳™",desc:"以格魯最愛的菜單為首，可以享受到小小兵們設計的餐點！",type:"restaurant"},
-  {id:34,name:"大白鯊™",desc:"乘坐觀光船，從襲擊和平港鎮的巨大食人鯊的恐怖中逃脫。",type:"ride"},
-  {id:35,name:"親善村漫步道遊戲",desc:"位於親善村的遊戲區。",type:"game"},
-  {id:36,name:"親善村冰淇淋",desc:"位於親善村的冰淇淋店。",type:"restaurant"},
-  {id:37,name:"木板路小吃",desc:"位於親善村的小吃店。",type:"restaurant"},
-  {id:38,name:"好萊塢美夢・乘車遊",desc:"選擇你喜愛的BGM，如飛翔在空中般奔馳的爽快雲霄飛車。",type:"ride"},
-  {id:39,name:"好萊塢美夢・乘車遊 ～逆轉世界～",desc:"後退行駛的雲霄飛車。",type:"ride"},
-  {id:40,name:"梅兒茲餐廳™",desc:"彷彿穿越時空來到50年代的美國！",type:"restaurant"},
-  {id:41,name:"比佛利山莊法式咖啡™",desc:"以法國街頭的露天咖啡座為主題。",type:"restaurant"},
-  {id:42,name:"環球影城禮品屋",desc:"園區內最大的紀念品商店。",type:"shop"},
-  {id:43,name:"羅迪歐大道禮品屋",desc:"以史努比和芝麻街等角色的周邊商品為主的商店。",type:"shop"},
-  {id:44,name:"加州糖果餅乾店",desc:"集結了園區內人氣的點心！",type:"shop"},
-  {id:45,name:"瑪利歐咖啡店&商店™",desc:"以瑪利歐和路易吉的帽子為主題的咖啡店及商店。",type:"shop_restaurant"},
-  {id:46,name:"蜘蛛人驚魂歷險記商品屋",desc:"蜘蛛人的周邊商品專賣店。",type:"shop"},
-  {id:47,name:"芬尼根酒吧&燒烤™",desc:"位於紐約區的愛爾蘭酒吧。",type:"restaurant"},
-  {id:48,name:"園畔護柵®",desc:"位於紐約區的牛排屋。",type:"restaurant"},
-  {id:49,name:"路易斯紐約比薩餅舖™",desc:"位於紐約區的比薩店。",type:"restaurant"},
-  {id:50,name:"SAIDO™",desc:"位於紐約區的日式餐廳。",type:"restaurant"},
-  {id:51,name:"名偵探柯南 4-D 現場表演秀：星空的寶石",desc:"名偵探柯南的世界，透過寬100m的巨型螢幕×3D影像×現場娛樂表演。",type:"show"},
-  {id:52,name:"哈利波特禁忌之旅™",desc:"連續5年榮獲世界No.1乘車遊的殊榮。",type:"ride"},
-  {id:53,name:"超級任天堂世界™",desc:"重現了瑪利歐的世界。",type:"area"},
-  {id:54,name:"瑪利歐賽車～庫巴的挑戰書～™",desc:"瑪利歐賽車的世界以及驚奇與興奮，透過最先進的技術化為現實！",type:"ride"},
-  {id:55,name:"耀西冒險™",desc:"騎在耀西的背上，跟著奇諾比奧隊長出發去尋寶！",type:"ride"},
-  {id:56,name:"咚奇剛的瘋狂礦車™",desc:"為了保護黃金香蕉，在叢林裡奔馳！",type:"ride"},
-  {id:57,name:"能量手環™的關鍵挑戰",desc:"從庫巴二世那裡奪回黃金蘑菇！",type:"attraction"},
-  {id:58,name:"奇諾比奧咖啡店™",desc:"維修中的敲磚塊、水管的裡面... 透過窗戶，說不定能看到快樂的蘑菇王國的樣子！？",type:"restaurant"},
-  {id:59,name:"耀西小吃島™",desc:"以耀西和烏龜殼為主題的餡餅及飲料，很適合邊走邊吃。",type:"restaurant"},
-  {id:60,name:"加油站爆米花",desc:"瑪利歐賽車的爆米花桶就在這裡！",type:"shop_food"},
-  {id:61,name:"咚奇剛的叢林冰沙",desc:"從木桶飛出來的咚奇剛超狂野！",type:"shop_food"},
-  {id:62,name:"環球奇境",desc: "艾蒙、史努比、Hello Kitty住在這裡的城鎮。", type: "area" },
-  {id:63,name:"飛天史努比",desc:"和史努比一起在空中飛翔！",type:"ride"},
-  {id:64,name:"史努比音響舞台歷險記™",desc:"可以和史努比們一起玩的室內遊樂場。",type:"play_area"},
-  {id:65,name:"史努比外景咖啡廳™",desc:"史努比和朋友們聚會的咖啡廳。",type:"restaurant"},
-  {id:66,name:"史努比攝影棚商品屋",desc:"滿滿的都是史努比周邊商品！",type:"shop"},
-  {id:67,name:"Hello Kitty蝴蝶結大收藏",desc:"參觀Hello Kitty的工作室，還可以合影留念！",type: "attraction"},
-  {id:68,name:"Hello Kitty夢幻蛋糕杯",desc:"隨著音樂旋轉的杯形蛋糕遊樂設施。",type:"ride"},
-  {id:69,name:"Hello Kitty蝴蝶結時尚精品店",desc:"Hello Kitty周邊商品。",type:"shop"},
-  {id:70,name:"Hello Kitty轉角咖啡廳",desc:"各式各樣可愛無比的食物！",type:"restaurant"},
-  {id:71,name:"大鳥的大頂篷馬戲團",desc:"芝麻街夥伴們擔任團長的旋轉木馬。",type:"ride"},
-  {id:72,name:"莫比的氣球之旅",desc:"乘坐氣球，從高空俯瞰芝麻街歡樂世界。",type:"ride"},
-  {id:73,name:"芝麻街大操場",desc:"巨大的攀爬架和滑梯。",type:"play_area"},
-  {id:74,name:"水世界™",desc:"充滿魄力的特技表演與爆破場面，必看的水上實境秀。",type:"show"},
-  {id:75,name:"新世紀福音戰士 XR乘車遊",desc:"VR雲霄飛車，體驗EVA的世界。",type:"ride"},
-  {id:76,name:"鬼滅之刃 XR乘車遊",desc:"VR雲霄飛車，體驗鬼滅之刃的世界。",type:"ride"},
-  {id:77,name:"名偵探柯南 4-D 現場表演秀：星空的寶石",desc:"名偵探柯南的世界，透過寬100m的巨型螢幕×3D影像×現場娛樂表演。",type:"show"},
-  {id:78,name:"我的英雄學院 The Real 4-D",desc:"與綠谷出久等英雄們一起對抗敵人。",type:"show"},
-  {id:79,name:"魔物獵人世界：冰原 XR WALK",desc:"在VR空間中自由行走的次世代遊樂設施。",type:"attraction"},
-  {id:80,name:"Sing on Tour",desc:"電影《歡樂好聲音》的角色們帶來的音樂劇。",type:"show"},
-  {id:81,name:"環球妖魔鬼怪搖滾樂表演秀",desc:"甲殼蟲汁與妖怪們的搖滾樂表演。",type:"show"},
-  {id:82,name:"好奇猴喬治同樂",desc:"和喬治一起玩耍！",type:"show"},
-  {id:83,name:"史瑞克 4-D 歷險記",desc:"史瑞克與驢子的冒險。",type:"show"},
-  {id:84,name:"芝麻街 4-D 電影魔術",desc:"芝麻街夥伴們的冒險。",type:"show"},
-  {id:85,name:"魔杖魔法",desc:"在活米村揮動魔杖，就會發生不可思議的魔法！",type:"attraction"},
-  {id:86,name:"費歐娜公主的照相館",desc:"可以和費歐娜公主合影。",type:"photo_spot"},
-  {id:87,name:"42號街工作室 - 迎賓畫廊",desc:"小小兵與史努比等角色的迎賓處。",type:"photo_spot"},
-  {id:88,name:"環球影城夜間奇觀遊行",desc:"利用光雕投影技術的夜間遊行。",type:"show"},
-  {id:89,name:"NO LIMIT! 遊行",desc:"瑪利歐、寶可夢等角色登場的熱鬧遊行。",type:"show"},
-  {id:90,name:"Power of Pop: Trending",desc:"實力派歌手帶來的流行歌曲演唱會。",type:"show"},
-  {id:91,name:"小提琴三重奏",desc:"街頭小提琴演奏。",type:"show"},
-  {id:92,name:"Hello Kitty Happiness Brass Band",desc:"Hello Kitty與銅管樂隊的表演。",type:"show"},
-  {id:93,name:"East Meets West Quartet",desc:"小提琴與三味線的合奏。",type:"show"},
-  {id:94,name:"Malibu Fried Chicken",desc:"美式炸雞店。",type:"restaurant"},
-  {id:95,name:"Boardwalk Snacks",desc:"比薩與熱狗。",type:"restaurant"},
-  {id:96,name:"Dragon's Pearl",desc:"中式餐廳。",type:"restaurant"},
-  {id:97,name:"Happiness Cafe",desc:"咖哩飯與飲料無限暢飲。",type:"restaurant"},
-  {id:98,name:"Studio Stars Restaurant",desc:"位於好萊塢區的西式餐廳。",type:"restaurant"},
-  {id:99,name:"Beverly Hills Boulangerie",desc:"三明治與甜點。",type:"restaurant"},
-  {id:100,name:"Schwab's Pharmacy",desc:"復古風格的藥局。",type:"shop"},
-  {id:101,name:"The Darkroom",desc:"相機與底片。",type:"shop"},
-  {id:102,name:"Universal Studios Store",desc:"園區內最大的商店。",type:"shop"},
-  {id:103,name:"It's So Fluffy!",desc:"獨角獸Fluffy的專賣店。",type:"shop"},
-  {id:104,name:"Minion Marketplace",desc:"小小兵商品。",type:"shop"},
-  {id:105,name:"San Francisco Candies",desc:"舊金山風格的糖果店。",type:"shop"},
-  {id:106,name:"Jurassic Outfitters",desc:"恐龍周邊商品。",type:"shop"},
-  {id:107,name:"One Piece Premier Show",desc:"航海王真人秀。",type:"show"},
-  {id:108,name:"Sanji's Pirates Restaurant",desc:"香吉士的海賊餐廳。",type:"restaurant"},
-  {id:109,name:"Discovery Restaurant",desc:"以電影《侏羅紀公園》遊客中心為主題的餐廳。",type:"restaurant"},
-  {id:110,name:"Fossil Fuels",desc:"輕食與飲料。",type:"shop_food"},
-  {id:111,name:"Azzurra di Capri",desc:"以藍洞為意象的義大利餐廳。",type:"restaurant"},
-  {id:112,name:"Park Side Grille",desc:"可以眺望湖景的餐廳。",type:"restaurant"},
-  {id:113,name:"Finnegan's Bar & Grill",desc:"愛爾蘭酒吧。",type:"restaurant"},
-  {id:114,name:"Louie's N.Y. Pizza Parlor",desc:"紐約風格比薩。",type:"restaurant"},
-  {id:115,name:"Saido",desc:"紐約區的日式餐廳。",type:"restaurant"},
-  {id:116,name:"Whomp's Snack Bar",desc:"瑪利歐世界的輕食店。",type:"shop_food"},
-  {id:117,name:"Mario Cafe & Store",desc:"瑪利歐主題咖啡店。",type:"shop_restaurant"},
-  {id:118,name:"Yoshi's Snack Island",desc:"耀西主題輕食。",type:"shop_food"},
-  {id:119,name:"Pit Stop Popcorn",desc:"瑪利歐賽車爆米花。",type:"shop_food"},
-  {id:120,name:"Donkey Kong's Jungle Sips",desc:"咚奇剛主題飲料。",type:"shop_food"},
-  {id:121,name:"Funne's Store",desc:"太空幻想列車旁的商店。",type:"shop"},
-  {id:122,name:"Space Fantasy Station",desc:"太空幻想列車周邊。",type:"shop"},
-  {id:123,name:"Sesame Street Kids Store",desc:"芝麻街兒童服飾。",type:"shop"},
-  {id:124,name:"Hello Kitty's Ribbon Boutique",desc:"Hello Kitty精品店。",type:"shop"},
-  {id:125,name:"Peanuts Corner Store",desc:"史努比周邊。",type:"shop"},
-  {id:126,name:"Character 4 U",desc:"各種角色商品。",type:"shop"},
-  {id:127,name:"Cinema 4-D Store",desc:"4-D電影周邊。",type:"shop"},
-  {id:128,name:"Universal Studios Souvenirs",desc:"環球影城紀念品。",type:"shop"},
-  {id:129,name:"Backlot Accessories",desc:"飾品與配件。",type:"shop"},
-  {id:130,name:"California Confectionery",desc:"糖果餅乾。",type:"shop"},
-  {id:131,name:"Rodeo Drive Souvenirs",desc:"羅迪歐大道紀念品。",type:"shop"},
-  {id:132,name:"Universal Studios Store (CityWalk)",desc:"園區外的商店。",type:"shop"},
-  {id:133,name:"The Park Front Hotel Shop",desc:"飯店內的商店。",type:"shop"},
-  {id:134,name:"Hotel Universal Port Shop",desc:"飯店內的商店。",type:"shop"},
-  {id:135,name:"Hotel Keihan Universal Tower Shop",desc:"飯店內的商店。",type:"shop"},
-  {id:136,name:"Hotel Kintetsu Universal City Shop",desc:"飯店內的商店。",type:"shop"},
-  {id:137,name:"Sing on Tour Store",desc:"歡樂好聲音周邊。",type:"shop"},
-  {id:138,name:"Despicable Me Minion Mayhem Store",desc:"小小兵乘車遊商店。",type:"shop"},
-  {id:139,name:"Freeze Ray Sliders Shop",desc:"冰凍雷射光周邊。",type:"shop"},
-  {id:140,name:"Lombard's Landing",desc:"舊金山區的餐廳。",type:"restaurant"},
-  {id:141,name:"Wharf Cafe",desc:"舊金山區的咖啡廳。",type:"restaurant"},
-  {id:142,name:"Dragon's Pearl",desc:"中式速食。",type:"restaurant"},
-  {id:143,name:"Coca-Cola Happiness Station",desc:"飲料販賣站。",type:"shop_food"},
-  {id:144,name:"Jurassic Park The Ride Photo",desc:"侏羅紀公園乘船遊照片。",type:"shop"},
-  {id:145,name:"The Flying Dinosaur Photo",desc:"飛天翼龍照片。",type:"shop"},
-  {id:146,name:"Hollywood Dream The Ride Photo",desc:"好萊塢美夢照片。",type:"shop"},
-  {id:147,name:"Jaws Photo",desc:"大白鯊照片。",type:"shop"},
-  {id:148,name:"Forbidden Journey Photo",desc:"禁忌之旅照片。",type:"shop"},
-  {id:149,name:"Mario Kart Photo",desc:"瑪利歐賽車照片。",type:"shop"},
-  {id:150,name:"Yoshi's Adventure Photo",desc:"耀西冒險照片。",type:"shop"},
-  {id:151,name:"Wonderland Photo",desc:"環球奇境照片。",type:"shop"},
-  {id:152,name:"Minion Park Photo",desc:"小小兵樂園照片。",type:"shop"},
-  {id:153,name:"Amity Boardwalk Games",desc:"親善村遊戲。",type:"game"},
-  {id:154,name:"Festival in the Park",desc:"園區內的遊戲攤位。",type:"game"},
-  {id:155,name:"Banana Cabana",desc:"小小兵樂園遊戲。",type:"game"},
-  {id:156,name:"Space Killer",desc:"射擊遊戲。",type:"game"},
-  {id:157,name:"Coin Pitch",desc:"投幣遊戲。",type:"game"},
-  {id:158,name:"Goblet Toss",desc:"丟球遊戲。",type:"game"}
+  {id:23,name:"侏羅紀公園・乘船遊™",desc:"乘船探險。",type:"ride"},
+  {id:27,name:"小小兵瘋狂乘車遊",desc:"進入格魯的實驗室。",type:"ride"},
+  {id:34,name:"大白鯊™",desc:"乘船逃離食人鯊。",type:"ride"},
+  {id:38,name:"好萊塢美夢・乘車遊",desc:"爽快雲霄飛車。",type:"ride"},
+  {id:52,name:"哈利波特禁忌之旅™",desc:"世界No.1乘車遊。",type:"ride"},
+  {id:54,name:"瑪利歐賽車～庫巴的挑戰書～™",desc:"瑪利歐賽車現實版。",type:"ride"},
+  {id:55,name:"耀西冒險™",desc:"騎在耀西背上尋寶。",type:"ride"},
+  {id:56,name:"咚奇剛的瘋狂礦車™",desc:"叢林奔馳。",type:"ride"},
+  {id:58,name:"奇諾比奧咖啡店™",desc:"蘑菇王國餐廳。",type:"restaurant"},
+  {id:62,name:"環球奇境",desc: "艾蒙、史努比、Hello Kitty的城鎮。", type: "area" },
+  {id:74,name:"水世界™",desc:"特技表演秀。",type:"show"},
+  {id:158,name:"鬼滅之刃 XR乘車遊",desc:"VR雲霄飛車。",type:"ride"},
 ];
 
 const EXPRESS_PASS_DEFINITIONS = {
@@ -463,15 +326,23 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
     );
 };
 
-// --- Helper: Get SVG Point ---
-function getSvgPoint(evt, svgEl) {
-  const pt = svgEl.createSVGPoint();
-  pt.x = evt.clientX;
-  pt.y = evt.clientY;
-  const ctm = svgEl.getScreenCTM();
-  if (!ctm) return null;
-  const p = pt.matrixTransform(ctm.inverse());
-  return { x: p.x, y: p.y }; 
+// --- Helper: Get Point on Image Relative (Robust) ---
+function getImageRelativePoint(e, imgEl) {
+    const rect = imgEl.getBoundingClientRect();
+  
+    const xPx = e.clientX - rect.left;
+    const yPx = e.clientY - rect.top;
+  
+    // clamp：避免點到圖片外
+    const cx = Math.min(Math.max(xPx, 0), rect.width);
+    const cy = Math.min(Math.max(yPx, 0), rect.height);
+  
+    return {
+      x: (cx / rect.width) * 100,
+      y: (cy / rect.height) * 100,
+      px: cx,
+      py: cy
+    };
 }
 
 // --- Main App Component ---
@@ -481,6 +352,9 @@ export default function USJPlannerApp() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
+  // GPS Permission State
+  const [gpsPermission, setGpsPermission] = useState('unknown');
+
   const [userApiKey, setUserApiKey] = useState(() => {
     return localStorage.getItem('usj_api_key') || '';
   });
@@ -549,10 +423,26 @@ export default function USJPlannerApp() {
   // Anchor / Debug Mode
   const [anchors, setAnchors] = useState(() => {
       const saved = localStorage.getItem('usj_anchors');
-      return saved ? JSON.parse(saved) : DEFAULT_ANCHORS;
+      // If local storage is empty, populate with DEFAULT_ANCHORS
+      // This is crucial for your new 16 points to take effect
+      if (!saved) return DEFAULT_ANCHORS;
+      
+      // If user has old anchors (only 3), merge/overwrite with new ones or just use new ones
+      // Here we prioritize the new high-precision anchors if the count is low
+      const parsed = JSON.parse(saved);
+      if (parsed.length < 5) return DEFAULT_ANCHORS;
+      return parsed;
   });
+  
   const [isAddAnchorMode, setIsAddAnchorMode] = useState(false);
   const [affineMatrix, setAffineMatrix] = useState(null);
+  
+  // Park center for geofencing (calculated from anchors)
+  const parkCenter = useMemo(() => {
+      const lat = DEFAULT_ANCHORS.reduce((acc, a) => acc + a.lat, 0) / DEFAULT_ANCHORS.length;
+      const lng = DEFAULT_ANCHORS.reduce((acc, a) => acc + a.lng, 0) / DEFAULT_ANCHORS.length;
+      return { lat, lng };
+  }, []);
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -578,11 +468,27 @@ export default function USJPlannerApp() {
       return offsets;
   }, []);
 
+  // Check GPS Permission on Mount
+  useEffect(() => {
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' })
+        .then(result => {
+          setGpsPermission(result.state);
+          result.onchange = () => {
+            setGpsPermission(result.state);
+          };
+        })
+        .catch(() => {
+          setGpsPermission('prompt'); // Fallback
+        });
+    } else {
+        setGpsPermission('prompt');
+    }
+  }, []);
+
   // Update Matrix when anchors change
   useEffect(() => {
       localStorage.setItem('usj_anchors', JSON.stringify(anchors));
-      const matrix = solveLeastSquares(anchors);
-      setAffineMatrix(matrix);
   }, [anchors]);
 
   // Persist State
@@ -590,12 +496,39 @@ export default function USJPlannerApp() {
   useEffect(() => { localStorage.setItem('usj_form_data', JSON.stringify(formData)); }, [formData]);
   useEffect(() => { localStorage.setItem('usj_saved_plans', JSON.stringify(savedPlans)); }, [savedPlans]);
 
-  // GPS Tracking Logic
+  // Load map image from local storage (or use default)
+  useEffect(() => {
+      // Force use of fixed map for this version as requested
+      setMapImage(FIXED_MAP_SRC);
+  }, []);
+
+  // --- Request GPS Permission ---
+  const requestGpsPermission = () => {
+      if (!navigator.geolocation) {
+          alert('此瀏覽器不支援 GPS');
+          return;
+      }
+      navigator.geolocation.getCurrentPosition(
+          (pos) => {
+              setGpsPermission('granted');
+              setRealGpsEnabled(true);
+          },
+          (err) => {
+              if (err.code === err.PERMISSION_DENIED) {
+                  setGpsPermission('denied');
+              }
+              alert('GPS 請求失敗: ' + err.message);
+          },
+          { enableHighAccuracy: true }
+      );
+  };
+
+  // --- GPS Tracking Logic (Weighted Least Squares + Geofencing) ---
   useEffect(() => {
     let watchId;
+    
     if (realGpsEnabled && currentView === 'map') {
         if (!navigator.geolocation) {
-            alert("您的瀏覽器不支援地理定位");
             setRealGpsEnabled(false);
             return;
         }
@@ -609,26 +542,77 @@ export default function USJPlannerApp() {
                 setLastGpsFix({ lat, lng, acc });
                 setGpsRaw({ lat, lng, acc });
 
-                // Use calculated matrix or fallback
-                const matrix = affineMatrix || solveLeastSquares(DEFAULT_ANCHORS);
-                const { x, y } = projectWithMatrix(lat, lng, matrix);
-                
-                // Clamp
-                const cx = Math.min(Math.max(x, 0), 100);
-                const cy = Math.min(Math.max(y, 0), 100);
+                // 1. Geofencing Check
+                const distToCenter = haversineMeters(lat, lng, parkCenter.lat, parkCenter.lng);
+                if (distToCenter > 3000) {
+                    setGpsXY(null); // Hide dot
+                    return; // Stop processing
+                }
 
-                setGpsXY({ x: cx, y: cy });
+                // 2. Prepare Local Meters for Current Position & Anchors
+                const centerLat = parkCenter.lat;
+                const centerLng = parkCenter.lng;
+                
+                // Convert Anchors to Local Meters (On the fly)
+                const anchorsWithLocal = anchors.map(a => {
+                    const local = llToLocalMeters(a.lat, a.lng, centerLat, centerLng);
+                    return { 
+                        ...a, 
+                        localX: local.x, 
+                        localY: local.y,
+                        mapX: a.x, // Target X (0-100)
+                        mapY: a.y  // Target Y (0-100)
+                    };
+                });
+
+                // Convert User Pos to Local Meters
+                const userLocal = llToLocalMeters(lat, lng, centerLat, centerLng);
+
+                // 3. Calculate Distances & Weights
+                const weightedAnchors = anchorsWithLocal.map(a => {
+                    const dx = a.localX - userLocal.x;
+                    const dy = a.localY - userLocal.y;
+                    const distSq = dx*dx + dy*dy;
+                    // Weight formula: 1 / (distance^2 + epsilon)
+                    // We assume anchor accuracy is high, so we focus on proximity
+                    const weight = 1 / (distSq + 1000); // 1000 is epsilon to prevent infinity
+                    return { ...a, weight };
+                });
+
+                // 4. Sort by nearest and pick top N (e.g., 6)
+                weightedAnchors.sort((a, b) => b.weight - a.weight); // Higher weight first
+                const nearestN = weightedAnchors.slice(0, 8); // Use top 8
+
+                // 5. Solve Matrix
+                const matrix = solveWeightedLeastSquares(nearestN);
+                
+                if (matrix) {
+                   const { a, b, c, d, e, f } = matrix;
+                   // 6. Apply to User Local Position
+                   const x = a * userLocal.x + b * userLocal.y + c;
+                   const y = d * userLocal.x + e * userLocal.y + f;
+                   
+                   // Clamp
+                   const cx = Math.min(Math.max(x, 0), 100);
+                   const cy = Math.min(Math.max(y, 0), 100);
+                   
+                   setGpsXY({ x: cx, y: cy });
+                }
             },
             (error) => {
                 console.error("GPS Error:", error);
+                if (error.code === error.PERMISSION_DENIED) {
+                    setGpsPermission('denied');
+                    setRealGpsEnabled(false);
+                }
             },
-            { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+            { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
         );
     }
     return () => {
         if (watchId) navigator.geolocation.clearWatch(watchId);
     };
-  }, [realGpsEnabled, currentView, affineMatrix]);
+  }, [realGpsEnabled, currentView, anchors, parkCenter]); // Dep on anchors so if user adds one, it recalcs
 
   // Handlers
   const handleInputChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
@@ -849,27 +833,6 @@ export default function USJPlannerApp() {
       }
   };
 
-  // New Helper: Get point on image regardless of transform
-  function getImageRelativePoint(e, imgEl) {
-    const rect = imgEl.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
-    const cx = Math.min(Math.max(px, 0), rect.width);
-    const cy = Math.min(Math.max(py, 0), rect.height);
-    return {
-      x: (cx / rect.width) * 100,
-      y: (cy / rect.height) * 100,
-      px: cx,
-      py: cy
-    };
-  }
-
-  // Load map image from local storage (or use default)
-  useEffect(() => {
-      const savedMap = localStorage.getItem('usj_map_image');
-      if (savedMap) setMapImage(savedMap);
-  }, []);
-
   const renderHome = () => (
     <div className="space-y-6 pb-20">
       <div className="bg-gradient-to-br from-blue-700 to-blue-500 text-white p-6 rounded-b-3xl shadow-lg relative overflow-hidden">
@@ -1027,45 +990,133 @@ export default function USJPlannerApp() {
        <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center">
         <h2 className="font-bold flex items-center gap-2"><MapIcon size={20}/> 園區導航</h2>
         <div className="flex gap-2">
-            <button onClick={() => setRealGpsEnabled(!realGpsEnabled)} className={`p-2 rounded-full transition-colors flex items-center gap-1 ${realGpsEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}><Locate size={16}/> {realGpsEnabled ? 'GPS ON' : '模擬'}</button>
+            <button 
+                onClick={() => {
+                  if (gpsPermission === 'denied') {
+                    alert('GPS 已被封鎖，請至瀏覽器設定中開啟定位權限');
+                    return;
+                  }
+                  requestGpsPermission();
+                }}
+                className={`p-2 rounded-full transition-colors flex items-center gap-1 ${realGpsEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}
+            >
+                <Locate size={16}/> {realGpsEnabled ? 'GPS 開啟' : '啟用 GPS'}
+            </button>
             <button onClick={() => setCurrentView('plan')} className="text-blue-600 text-sm font-bold">列表</button>
         </div>
       </div>
-      <div className="flex-1 overflow-hidden relative bg-[#e0f2fe] flex items-center justify-center" ref={mapContainerRef} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-        <div style={{ transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})`, transformOrigin: '0 0', transition: isDragging ? 'none' : 'transform 0.1s ease-out', display: 'inline-block' }}>
+
+      <div 
+        className="flex-1 overflow-hidden relative bg-[#e0f2fe] flex items-center justify-center"
+        ref={mapContainerRef}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Transform Layer */}
+        <div 
+            style={{ 
+                transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})`,
+                transformOrigin: '0 0', 
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                display: 'inline-block' 
+            }}
+        >
+            {/* Content Wrapper - Image + SVG */}
             <div className="relative shadow-2xl bg-white inline-block">
-                <img ref={imgRef} src={FIXED_MAP_SRC} alt="USJ Map" className="block select-none" draggable={false}/>
-                <svg ref={svgRef} viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${isAddAnchorMode ? 'cursor-crosshair' : 'pointer-events-none'}`} onClick={handleMapClick}>
-                    {isAddAnchorMode && anchors.map(a => (<g key={a.id}><circle cx={a.x} cy={a.y} r="1" fill="red" /></g>))}
+                <img 
+                    ref={imgRef}
+                    src={FIXED_MAP_SRC} 
+                    alt="USJ Map" 
+                    className="block select-none"
+                    draggable={false}
+                    onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "https://www.usj.co.jp/web/d_common/img/usj-map-guide-studio-thumb.jpg";
+                    }}
+                />
+
+                {/* Interactive Overlay Layer */}
+                <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${isAddAnchorMode ? 'cursor-crosshair' : 'pointer-events-none'}`} onClick={handleMapClick}>
+                    {/* Zones (Fixed Visual Position) */}
                     {ZONES_DATA.map(zone => (
                         <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => !isAddAnchorMode && alert(zone.name)}>
                             <circle cx={zone.x} cy={zone.y} r="6" fill={zone.color} opacity="0.6" />
                             <text x={zone.x} y={zone.y} textAnchor="middle" dy="0.3em" fontSize="3" fill="black" fontWeight="bold">{zone.code}</text>
                         </g>
                     ))}
-                    <g transform={`translate(${gpsXY.x}, ${gpsXY.y})`}>
-                        <circle r="4" fill="#3b82f6" opacity="0.8" className="animate-ping" />
-                        <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
-                    </g>
+                    
+                    {/* Anchors (Visual Debug - Only show in Add Anchor Mode) */}
+                    {isAddAnchorMode && anchors.map(a => (
+                        <g key={a.id}>
+                            <circle cx={a.x} cy={a.y} r="1" fill="red" />
+                            <text x={a.x+2} y={a.y} fontSize="2" fill="red">{a.name}</text>
+                        </g>
+                    ))}
+
+                    {/* User GPS (Calculated) */}
+                    {gpsXY && (
+                        <g transform={`translate(${gpsXY.x}, ${gpsXY.y})`}>
+                            <circle r="4" fill="#3b82f6" opacity="0.8" className="animate-ping" />
+                            <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
+                        </g>
+                    )}
                 </svg>
             </div>
         </div>
+        
+        {/* Map Controls */}
         <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto">
-            <button onClick={() => handleZoom(1)} className="p-2 bg-white rounded shadow"><ZoomIn size={20}/></button>
-            <button onClick={() => handleZoom(-1)} className="p-2 bg-white rounded shadow"><ZoomOut size={20}/></button>
+            <button onClick={() => handleZoom(1)} className="p-2 bg-white rounded shadow text-gray-600 hover:text-blue-600">
+                <ZoomIn size={20}/>
+            </button>
+            <button onClick={() => handleZoom(-1)} className="p-2 bg-white rounded shadow text-gray-600 hover:text-blue-600">
+                <ZoomOut size={20}/>
+            </button>
+            <button onClick={handleResetMap} className="p-2 bg-white rounded shadow text-gray-600 hover:text-blue-600">
+                <Maximize size={20}/>
+            </button>
         </div>
+
+        {/* Anchor Controls */}
         <div className="absolute bottom-20 right-4 pointer-events-auto flex flex-col gap-2">
-             <button onClick={() => setIsAddAnchorMode(!isAddAnchorMode)} className={`p-3 rounded-full shadow-lg transition-colors ${isAddAnchorMode ? 'bg-red-500 text-white' : 'bg-white text-gray-600'}`}><MapPin size={24}/></button>
-             <button onClick={resetAnchors} className="p-3 bg-white rounded-full shadow-lg text-gray-600"><RotateCcw size={24}/></button>
+             <button 
+                onClick={() => setIsAddAnchorMode(!isAddAnchorMode)}
+                className={`p-3 rounded-full shadow-lg transition-colors ${isAddAnchorMode ? 'bg-red-500 text-white' : 'bg-white text-gray-600'}`}
+                title="新增校正點"
+            >
+                <MapPin size={24}/>
+            </button>
+            <button 
+                onClick={resetAnchors}
+                className="p-3 bg-white rounded-full shadow-lg text-gray-600"
+                title="重置校正"
+            >
+                <RotateCcw size={24}/>
+            </button>
         </div>
+        
+        {/* Simulated GPS Controls (Only show if Real GPS is OFF) */}
         {!realGpsEnabled && (
             <div className="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-lg pointer-events-auto">
-                <button className="p-2 bg-blue-100 rounded-full text-blue-600 mb-2 block" onClick={() => { const c = ZONES_MAP['hollywood']; setGpsXY({ x: c.x, y: c.y }); }}><Navigation size={20} /></button>
+                <button className="p-2 bg-blue-100 rounded-full text-blue-600 mb-2 block" onClick={() => {
+                    // Mock: Set A zone as current
+                    const zoneA = ZONES_MAP['hollywood'];
+                    setGpsXY({ x: zoneA.x, y: zoneA.y });
+                }}>
+                    <Navigation size={20} />
+                </button>
                 <span className="text-[10px] text-gray-500 block text-center">模擬移動</span>
             </div>
         )}
+
+        {/* Info Bar */}
         <div className="absolute top-2 left-2 right-14 bg-white/90 p-2 rounded text-[10px] text-gray-500 shadow-sm pointer-events-none">
-            {isAddAnchorMode ? '🔴 點擊地圖新增校正點 (需開啟 GPS)' : '地圖模式：三角定位自動校正'}
+            {isAddAnchorMode ? '🔴 點擊地圖位置以新增校正點 (需先取得 GPS)' : gpsPermission === 'denied' ? '🚫 GPS 權限被拒，請至設定開啟' : '地圖模式：加權三角定位自動校正'}
         </div>
       </div>
     </div>
@@ -1077,11 +1128,24 @@ export default function USJPlannerApp() {
       {currentView === 'plan' && renderItinerary()}
       {currentView === 'map' && renderMap()}
       {currentView === 'saved' && renderSavedPlans()}
-      <EditModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} item={editingItem} onSave={handleSaveItem} />
+      
+      <EditModal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+        item={editingItem}
+        onSave={handleSaveItem}
+      />
+
       <div className="fixed bottom-0 max-w-md w-full bg-white border-t border-gray-200 flex justify-around py-3 text-xs text-gray-500 z-50">
-          <button onClick={() => setCurrentView('plan')} className={`flex flex-col items-center gap-1 ${currentView === 'plan' ? 'text-blue-600' : ''}`}><Clock size={20}/> 行程</button>
-          <button onClick={() => setCurrentView('map')} className={`flex flex-col items-center gap-1 ${currentView === 'map' ? 'text-blue-600' : ''}`}><MapIcon size={20}/> 地圖</button>
-          <button onClick={() => setCurrentView('saved')} className={`flex flex-col items-center gap-1 ${currentView === 'saved' ? 'text-blue-600' : ''}`}><FolderOpen size={20}/> 我的行程</button>
+          <button onClick={() => setCurrentView('plan')} className={`flex flex-col items-center gap-1 ${currentView === 'plan' ? 'text-blue-600' : ''}`}>
+              <Clock size={20}/> 行程
+          </button>
+          <button onClick={() => setCurrentView('map')} className={`flex flex-col items-center gap-1 ${currentView === 'map' ? 'text-blue-600' : ''}`}>
+              <MapIcon size={20}/> 地圖
+          </button>
+          <button onClick={() => setCurrentView('saved')} className={`flex flex-col items-center gap-1 ${currentView === 'saved' ? 'text-blue-600' : ''}`}>
+              <FolderOpen size={20}/> 我的行程
+          </button>
       </div>
     </div>
   );
