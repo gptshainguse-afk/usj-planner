@@ -8,7 +8,6 @@ const apiKey = ""; // 預覽環境會自動注入 Key
 const FIXED_MAP_SRC = "/usj_map.jpg"; // 請確保 public 資料夾有此圖片
 
 // --- 區域資料 (視覺座標 x,y) ---
-// 根據您的校正更新
 const ZONES_DATA = [
   { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, color: '#fca5a5' },
   { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, color: '#93c5fd' },
@@ -28,7 +27,6 @@ const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
 }, {});
 
 // --- 錨點資料 (用於三角定位計算) ---
-// 包含 17 個精確校正點
 const DEFAULT_ANCHORS = [
   { id: 'anchor_01', name: '任天堂入口附近', x: 79.8, y: 82.4, lat: 34.665954, lng: 135.430132 },
   { id: 'anchor_02', name: '環球奇境入口', x: 24.4, y: 90.3, lat: 34.667291, lng: 135.435171 },
@@ -58,6 +56,9 @@ function solveLeastSquares(anchors) {
     let sumX = 0, sumY = 0, sumXLat = 0, sumXLng = 0, sumYLat = 0, sumYLng = 0;
 
     for (const p of anchors) {
+        // 只使用有 GPS 數據的錨點進行計算
+        if (p.lat == null || p.lng == null) continue;
+        
         sumLat += p.lat;
         sumLng += p.lng;
         sumLat2 += p.lat * p.lat;
@@ -112,8 +113,25 @@ const projectWithMatrix = (lat, lng, matrix) => {
     return { x, y };
 };
 
-// --- 資料庫定義 (完整版) ---
+// --- Helper: Get Point on Image Percent (Robust) ---
+function getPointOnImagePercent(e, imgEl) {
+    const r = imgEl.getBoundingClientRect();
+    const px = e.clientX - r.left;
+    const py = e.clientY - r.top;
+  
+    // clamp（避免點到圖片外）
+    const cx = Math.min(Math.max(px, 0), r.width);
+    const cy = Math.min(Math.max(py, 0), r.height);
+  
+    return {
+      x: (cx / r.width) * 100,
+      y: (cy / r.height) * 100,
+      px: cx,
+      py: cy
+    };
+}
 
+// ... (Attractions and Facility Database)
 const ATTRACTIONS = [
   { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'nintendo', type: 'ride', wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
   { id: 'mario_kart', name: '瑪利歐賽車：庫巴的挑戰書', zone: 'nintendo', type: 'ride', wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'medium' },
@@ -302,17 +320,6 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
         </div>
     );
 };
-
-// --- Helper: Get SVG Point ---
-function getSvgPoint(evt, svgEl) {
-  const pt = svgEl.createSVGPoint();
-  pt.x = evt.clientX;
-  pt.y = evt.clientY;
-  const ctm = svgEl.getScreenCTM();
-  if (!ctm) return null;
-  const p = pt.matrixTransform(ctm.inverse());
-  return { x: p.x, y: p.y }; 
-}
 
 // --- Main App Component ---
 
@@ -664,16 +671,16 @@ export default function USJPlannerApp() {
   const onTouchMove = (e) => { if (!isDragging || e.touches.length !== 1) return; setViewState(prev => ({ ...prev, x: e.touches[0].clientX - startPan.x, y: e.touches[0].clientY - startPan.y })); };
   const onTouchEnd = () => setIsDragging(false);
 
-  // Add Anchor Logic
+  // Add Anchor Logic (Fix: Use new helper)
   const handleMapClick = (e) => {
       if (!isAddAnchorMode) return;
-      if (!mapContainerRef.current || !imgRef.current) return;
+      if (!imgRef.current) return;
 
-      const p = getViewBoxPointFromClick(e, mapContainerRef.current, viewState, imgRef.current);
+      const p = getPointOnImagePercent(e, imgRef.current);
       if (!p) return;
 
       const currentGps = lastGpsFix || gpsRaw;
-      const name = prompt("請輸入此校正點名稱（例如：小小兵入口）：");
+      const name = prompt("請輸入此校正點名稱：");
       if (name) {
           setAnchors(prev => [...prev, { 
               id: Date.now(), 
@@ -688,24 +695,17 @@ export default function USJPlannerApp() {
       }
   };
 
-  // Improved coordinate extraction
-  function getViewBoxPointFromClick(e, mapContainerEl, viewState, imgEl) {
-    const rect = mapContainerEl.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-    
-    // Invert transform
-    const localX = (cx - viewState.x) / viewState.scale;
-    const localY = (cy - viewState.y) / viewState.scale;
-
-    const renderedW = imgEl.clientWidth;
-    const renderedH = imgEl.clientHeight;
-
-    if (renderedW === 0 || renderedH === 0) return null;
-
-    const x = (localX / renderedW) * 100;
-    const y = (localY / renderedH) * 100;
-    return { x, y };
+  // New Helper: Get point on image regardless of transform
+  function getPointOnImagePercent(e, imgEl) {
+    const r = imgEl.getBoundingClientRect();
+    const px = e.clientX - r.left;
+    const py = e.clientY - r.top;
+    const cx = Math.min(Math.max(px, 0), r.width);
+    const cy = Math.min(Math.max(py, 0), r.height);
+    return {
+      x: (cx / r.width) * 100,
+      y: (cy / r.height) * 100
+    };
   }
 
   const renderHome = () => (
