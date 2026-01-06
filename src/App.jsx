@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, ZoomIn, ZoomOut, Maximize, MapPin, Copy, RotateCcw, Sliders, Image as ImageIcon } from 'lucide-react';
+import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, ZoomIn, ZoomOut, Maximize, Sliders, MapPin, Copy, RotateCcw, Image as ImageIcon } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
@@ -8,8 +8,6 @@ const apiKey = ""; // 預覽環境會自動注入 Key
 const FIXED_MAP_SRC = "/usj_map.jpg"; // 請確保 public 資料夾有此圖片
 
 // --- 區域資料 (視覺座標 x,y) ---
-// 這裡的 x,y 是基於 viewBox 0-100 的相對位置
-// 您可以使用下方的「校正模式」點擊地圖來獲取更精確的數值並更新這裡
 const ZONES_DATA = [
   { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, color: '#fca5a5' },
   { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, color: '#93c5fd' },
@@ -29,26 +27,23 @@ const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
 }, {});
 
 // --- 錨點資料 (用於三角定位計算) ---
-// 這裡將「真實 GPS」映射到「地圖座標」
-// 您可以使用校正模式來修正這裡的 x, y 值
 const DEFAULT_ANCHORS = [
-  // A 點: 侏儸紀入口
   { id: 'anchor_a', name: 'A 侏儸紀入口', x: 85.0, y: 30.0, lat: 34.665591, lng: 135.430529 },
-  // B 點: 小小兵路口
   { id: 'anchor_b', name: 'B 小小兵路口', x: 50.0, y: 5.0, lat: 34.663868, lng: 135.432521 },
-  // C 點: 好萊塢入口
   { id: 'anchor_c', name: 'C 好萊塢入口', x: 15.0, y: 50.0, lat: 34.666120, lng: 135.434928 }
 ];
 
 // --- 演算法：最小平方法求解仿射變換矩陣 ---
 function solveLeastSquares(anchors) {
-    const n = anchors.length;
+    // 過濾掉沒有 GPS 資料的點 (僅用於視覺校正的點不參與計算)
+    const validAnchors = anchors.filter(a => a.lat != null && a.lng != null);
+    const n = validAnchors.length;
     if (n < 3) return null; 
 
     let sumLat = 0, sumLng = 0, sumLat2 = 0, sumLng2 = 0, sumLatLng = 0;
     let sumX = 0, sumY = 0, sumXLat = 0, sumXLng = 0, sumYLat = 0, sumYLng = 0;
 
-    for (const p of anchors) {
+    for (const p of validAnchors) {
         sumLat += p.lat;
         sumLng += p.lng;
         sumLat2 += p.lat * p.lat;
@@ -102,6 +97,30 @@ const projectWithMatrix = (lat, lng, matrix) => {
     const y = d * lat + e * lng + f;
     return { x, y };
 };
+
+// --- Helper: Get ViewBox Point from Click (Robust) ---
+function getViewBoxPointFromClick(e, mapContainerEl, viewState, imgEl) {
+    const rect = mapContainerEl.getBoundingClientRect();
+  
+    // click position in container
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+  
+    // invert translate+scale (Using 0,0 transform origin logic)
+    const localX = (cx - viewState.x) / viewState.scale;
+    const localY = (cy - viewState.y) / viewState.scale;
+  
+    const renderedW = imgEl.clientWidth;
+    const renderedH = imgEl.clientHeight;
+    
+    // Safety check
+    if (renderedW === 0 || renderedH === 0) return null;
+  
+    const x = (localX / renderedW) * 100;
+    const y = (localY / renderedH) * 100;
+  
+    return { x, y, localX, localY };
+}
 
 // --- 資料庫定義 (完整版) ---
 
@@ -293,17 +312,6 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
         </div>
     );
 };
-
-// --- Helper: Get SVG Point ---
-function getSvgPoint(evt, svgEl) {
-  const pt = svgEl.createSVGPoint();
-  pt.x = evt.clientX;
-  pt.y = evt.clientY;
-  const ctm = svgEl.getScreenCTM();
-  if (!ctm) return null;
-  const p = pt.matrixTransform(ctm.inverse());
-  return { x: p.x, y: p.y }; 
-}
 
 // --- Main App Component ---
 
@@ -658,10 +666,9 @@ export default function USJPlannerApp() {
   // Add Anchor Logic
   const handleMapClick = (e) => {
       if (!isAddAnchorMode) return;
-      if (!lastGpsFix && !gpsRaw) { alert("尚未取得 GPS 訊號"); return; }
-      
-      const svgEl = svgRef.current;
-      const p = getSvgPoint(e, svgEl);
+      if (!mapContainerRef.current || !imgRef.current) return;
+
+      const p = getViewBoxPointFromClick(e, mapContainerRef.current, viewState, imgRef.current);
       if (!p) return;
 
       const currentGps = lastGpsFix || gpsRaw;
@@ -672,13 +679,33 @@ export default function USJPlannerApp() {
               name, 
               x: parseFloat(p.x.toFixed(2)), 
               y: parseFloat(p.y.toFixed(2)), 
-              lat: currentGps.lat, 
-              lng: currentGps.lng 
+              lat: currentGps ? currentGps.lat : null, 
+              lng: currentGps ? currentGps.lng : null
           }]);
           setIsAddAnchorMode(false);
-          alert("校正點已新增！定位精準度將提升。");
+          alert(`校正點已新增！(x:${p.x.toFixed(1)}, y:${p.y.toFixed(1)})`);
       }
   };
+
+  // Improved coordinate extraction
+  function getViewBoxPointFromClick(e, mapContainerEl, viewState, imgEl) {
+    const rect = mapContainerEl.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    
+    // Invert transform
+    const localX = (cx - viewState.x) / viewState.scale;
+    const localY = (cy - viewState.y) / viewState.scale;
+
+    const renderedW = imgEl.clientWidth;
+    const renderedH = imgEl.clientHeight;
+
+    if (renderedW === 0 || renderedH === 0) return null;
+
+    const x = (localX / renderedW) * 100;
+    const y = (localY / renderedH) * 100;
+    return { x, y };
+  }
 
   const renderHome = () => (
     <div className="space-y-6 pb-20">
@@ -842,9 +869,9 @@ export default function USJPlannerApp() {
         </div>
       </div>
       <div className="flex-1 overflow-hidden relative bg-[#e0f2fe] flex items-center justify-center" ref={mapContainerRef} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-        <div style={{ transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})`, transformOrigin: 'center', transition: isDragging ? 'none' : 'transform 0.1s ease-out', display: 'inline-block' }}>
+        <div style={{ transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})`, transformOrigin: '0 0', transition: isDragging ? 'none' : 'transform 0.1s ease-out', display: 'inline-block' }}>
             <div className="relative shadow-2xl bg-white inline-block">
-                <img src={FIXED_MAP_SRC} alt="USJ Map" className="block select-none" draggable={false}/>
+                <img ref={imgRef} src={FIXED_MAP_SRC} alt="USJ Map" className="block select-none" draggable={false}/>
                 <svg ref={svgRef} viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${isAddAnchorMode ? 'cursor-crosshair' : 'pointer-events-none'}`} onClick={handleMapClick}>
                     {anchors.map(a => (<g key={a.id}><circle cx={a.x} cy={a.y} r="1" fill="red" /></g>))}
                     {ZONES_DATA.map(zone => (
@@ -874,6 +901,9 @@ export default function USJPlannerApp() {
                 <span className="text-[10px] text-gray-500 block text-center">模擬移動</span>
             </div>
         )}
+        <div className="absolute top-2 left-2 right-14 bg-white/90 p-2 rounded text-[10px] text-gray-500 shadow-sm pointer-events-none">
+            {isAddAnchorMode ? '🔴 點擊地圖新增校正點 (需開啟 GPS)' : '地圖模式：三角定位自動校正'}
+        </div>
       </div>
     </div>
   );
