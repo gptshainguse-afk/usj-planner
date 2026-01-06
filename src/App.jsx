@@ -18,7 +18,7 @@ const ZONES_DATA = [
   { id: 'amity', code: 'G', name: 'G 親善村', x: 65, y: 45, color: '#fdba74' },
   { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 81.6, y: 88.9, color: '#ef4444', textColor: 'white' },
   { id: 'harry_potter', code: 'I', name: 'I 哈利波特', x: 65.3, y: 95.9, color: '#1e293b', textColor: 'white' },
-  { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 44.5, y: 82.9, color: '#f9a8d4' },
+  { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 41.9, y: 67.5, color: '#f9a8d4' },
 ];
 
 const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
