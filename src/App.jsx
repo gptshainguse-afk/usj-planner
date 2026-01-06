@@ -4,49 +4,26 @@ import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircl
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
 
-// --- 地圖與校正設定 ---
-const FIXED_MAP_SRC = "/usj_map.jpg"; // 請將圖片放在 public 資料夾
+// --- 地圖設定 ---
+const FIXED_MAP_SRC = "/usj_map.jpg"; // 請確保圖片位於 public 資料夾
 
-// 1. 基礎地圖參數
-const DEFAULT_MAP_SETTINGS = {
-    centerLat: 34.666800,
-    centerLng: 135.433000,
-    rotation: 285, 
-    scaleX: 16000, 
-    scaleY: 19000
-};
-
-// 2. 輔助函式：將真實 GPS 轉換為地圖上的 % 座標 (基於預設參數)
-const projectGpsToMap = (lat, lng) => {
-    const { centerLat, centerLng, rotation, scaleX, scaleY } = DEFAULT_MAP_SETTINGS;
-    
-    const dLat = lat - centerLat;
-    const dLng = lng - centerLng;
-
-    const rad = rotation * (Math.PI / 180);
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-
-    const lngCorrection = 0.82; 
-    const xRaw = dLng * lngCorrection;
-    const yRaw = dLat;
-
-    const xRotated = xRaw * cos - yRaw * sin;
-    const yRotated = xRaw * sin + yRaw * cos;
-
-    const xPercent = 50 + (xRotated * scaleX);
-    const yPercent = 50 - (yRotated * scaleY);
-
-    return { x: xPercent, y: yPercent };
-};
-
-// 3. 區域資料 (手動視覺座標 x, y)
+// --- 區域資料 (基準點 / Ground Truth) ---
+// 視覺座標 (x, y) 為手動校正
+// GPS (lat, lng) 為真實錨點
 const ZONES_DATA = [
-  { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, lat: 34.663620, lng: 135.434522, color: '#fca5a5' },
+  // 1. 好萊塢 (您提供的 C點 GPS)
+  { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, lat: 34.666120, lng: 135.434928, color: '#fca5a5' },
+  
   { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, lat: 34.665500, lng: 135.436000, color: '#93c5fd' },
-  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 50, y: 5, lat: 34.667471, lng: 135.435172, color: '#fde047' },
+  
+  // 2. 小小兵 (您提供的 B點 GPS)
+  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 50, y: 5, lat: 34.663868, lng: 135.432521, color: '#fde047' },
+  
   { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 50, y: 30, lat: 34.666000, lng: 135.434000, color: '#d1d5db' },
-  { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, lat: 34.668000, lng: 135.433000, color: '#4ade80' },
+  
+  // 3. 侏儸紀 (您提供的 A點 GPS)
+  { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, lat: 34.665591, lng: 135.430529, color: '#4ade80' },
+  
   { id: 'waterworld', code: 'F', name: 'F 水世界', x: 91, y: 56, lat: 34.668436, lng: 135.431870, color: '#67e8f9' },
   { id: 'amity', code: 'G', name: 'G 親善村', x: 65, y: 45, lat: 34.666500, lng: 135.431000, color: '#fdba74' },
   { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 82, y: 85, lat: 34.670000, lng: 135.432000, color: '#ef4444', textColor: 'white' },
@@ -59,7 +36,61 @@ const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
     return acc;
 }, {});
 
-// 遊樂設施資料
+// --- 演算法：仿射變換矩陣計算 ---
+// 使用三個精確錨點
+const ANCHORS = [
+    ZONES_MAP['hollywood'], // C點
+    ZONES_MAP['minion'],    // B點
+    ZONES_MAP['jurassic']   // A點
+];
+
+function solveAffineMatrix(anchors) {
+    if (!anchors || anchors.length < 3) return null;
+
+    const p0 = anchors[0], p1 = anchors[1], p2 = anchors[2];
+    
+    const det = (a, b, c, d) => a * d - b * c;
+    
+    // 歸一化座標以提高計算精度
+    const lat0 = p0.lat, lng0 = p0.lng;
+    const x0 = p0.x, y0 = p0.y;
+    
+    const lat1 = p1.lat - lat0, lng1 = p1.lng - lng0, x1 = p1.x - x0, y1 = p1.y - y0;
+    const lat2 = p2.lat - lat0, lng2 = p2.lng - lng0, x2 = p2.x - x0, y2 = p2.y - y0;
+    
+    const determinant = det(lat1, lng1, lat2, lng2);
+    
+    if (determinant === 0) return null;
+    
+    const a = det(x1, lng1, x2, lng2) / determinant;
+    const b = det(lat1, x1, lat2, x2) / determinant;
+    
+    const d = det(y1, lng1, y2, lng2) / determinant;
+    const e = det(lat1, y1, lat2, y2) / determinant;
+    
+    const c = x0;
+    const f = y0;
+    
+    return { a, b, c, d, e, f, lat0, lng0 };
+}
+
+const AFFINE_MATRIX = solveAffineMatrix(ANCHORS);
+
+const projectGpsToMap = (lat, lng) => {
+    if (!AFFINE_MATRIX) return { x: 50, y: 50 }; // Fallback
+    
+    const { a, b, c, d, e, f, lat0, lng0 } = AFFINE_MATRIX;
+    
+    const dLat = lat - lat0;
+    const dLng = lng - lng0;
+    
+    const x = a * dLat + b * dLng + c;
+    const y = d * dLat + e * dLng + f;
+    
+    return { x, y };
+};
+
+// ... (Attractions and Facility Database)
 const ATTRACTIONS = [
   { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'nintendo', type: 'ride', wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
   { id: 'mario_kart', name: '瑪利歐賽車：庫巴的挑戰書', zone: 'nintendo', type: 'ride', wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'medium' },
@@ -102,7 +133,8 @@ const FACILITY_DATABASE = [
 
 const EXPRESS_PASS_DEFINITIONS = {
   1:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'conan_4d',t:true}, {id:'jurassic_park',t:false}],
-  // ... 其他票券定義保留
+  2:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'minion_mayhem',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
+  // ... 其他定義保持不變
 };
 
 const EXPRESS_PASS_RAW = [
@@ -223,72 +255,6 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
     );
 };
 
-// --- Calibration Control Panel ---
-const MapCalibrationControls = ({ calibration, setCalibration, onClose }) => {
-    return (
-        <div className="absolute bottom-16 left-4 right-4 bg-white p-4 rounded-xl shadow-2xl z-50 animate-slide-up border border-gray-200">
-            <div className="flex justify-between items-center mb-3">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2"><Sliders size={16}/> GPS 校正面板</h3>
-                <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={18}/></button>
-            </div>
-            
-            <div className="space-y-3">
-                <div>
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>X 軸偏移 (左右)</span>
-                        <span>{calibration.dx}</span>
-                    </div>
-                    <input 
-                        type="range" min="-50" max="50" step="0.5"
-                        value={calibration.dx}
-                        onChange={(e) => setCalibration(prev => ({ ...prev, dx: parseFloat(e.target.value) }))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                </div>
-                
-                <div>
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Y 軸偏移 (上下)</span>
-                        <span>{calibration.dy}</span>
-                    </div>
-                    <input 
-                        type="range" min="-50" max="50" step="0.5"
-                        value={calibration.dy}
-                        onChange={(e) => setCalibration(prev => ({ ...prev, dy: parseFloat(e.target.value) }))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                </div>
-
-                <div>
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>縮放修正</span>
-                        <span>{calibration.scale}x</span>
-                    </div>
-                    <input 
-                        type="range" min="0.5" max="2" step="0.05"
-                        value={calibration.scale}
-                        onChange={(e) => setCalibration(prev => ({ ...prev, scale: parseFloat(e.target.value) }))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                </div>
-                
-                <div>
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>旋轉微調</span>
-                        <span>{calibration.rotation}°</span>
-                    </div>
-                    <input 
-                        type="range" min="-180" max="180" step="1"
-                        value={calibration.rotation}
-                        onChange={(e) => setCalibration(prev => ({ ...prev, rotation: parseFloat(e.target.value) }))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                </div>
-            </div>
-        </div>
-    );
-};
-
 // --- Main App Component ---
 
 export default function USJPlannerApp() {
@@ -359,13 +325,6 @@ export default function USJPlannerApp() {
   const [realGpsEnabled, setRealGpsEnabled] = useState(false);
   const [displayWeather, setDisplayWeather] = useState({ condition: 'sunny', temp: 15, text: '尚未取得天氣資訊' });
 
-  // Calibration State
-  const [showCalibration, setShowCalibration] = useState(false);
-  const [mapCalibration, setMapCalibration] = useState(() => {
-      const saved = localStorage.getItem('usj_map_calibration');
-      return saved ? JSON.parse(saved) : { dx: 0, dy: 0, scale: 1, rotation: 0 };
-  });
-
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -400,41 +359,6 @@ export default function USJPlannerApp() {
     localStorage.setItem('usj_saved_plans', JSON.stringify(savedPlans));
   }, [savedPlans]);
 
-  useEffect(() => {
-      localStorage.setItem('usj_map_calibration', JSON.stringify(mapCalibration));
-  }, [mapCalibration]);
-
-  // Helper to apply calibration and projection
-  const getCalibratedGps = (lat, lng) => {
-      // 1. Basic Projection from Lat/Lng to Screen %
-      let { x, y } = projectGpsToMap(lat, lng);
-      
-      // 2. Apply Manual Calibration from Panel
-      const cx = 50;
-      const cy = 50;
-      
-      // Scale
-      x = cx + (x - cx) * mapCalibration.scale;
-      y = cy + (y - cy) * mapCalibration.scale;
-
-      // Rotation
-      if (mapCalibration.rotation !== 0) {
-          const rad = mapCalibration.rotation * (Math.PI / 180);
-          const cos = Math.cos(rad);
-          const sin = Math.sin(rad);
-          const dx = x - cx;
-          const dy = y - cy;
-          x = cx + (dx * cos - dy * sin);
-          y = cy + (dx * sin + dy * cos);
-      }
-
-      // Translation
-      x += mapCalibration.dx;
-      y += mapCalibration.dy;
-
-      return { x, y };
-  };
-
   // GPS Tracking Effect
   useEffect(() => {
     let watchId;
@@ -452,7 +376,7 @@ export default function USJPlannerApp() {
                 
                 setGpsRaw({ lat, lng, acc: position.coords.accuracy });
 
-                const { x, y } = getCalibratedGps(lat, lng);
+                const { x, y } = projectGpsToMap(lat, lng);
                 
                 // Clamp
                 const cx = Math.min(Math.max(x, 0), 100);
@@ -469,7 +393,7 @@ export default function USJPlannerApp() {
     return () => {
         if (watchId) navigator.geolocation.clearWatch(watchId);
     };
-  }, [realGpsEnabled, currentView, mapCalibration]);
+  }, [realGpsEnabled, currentView]);
 
   const handleInputChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
   
@@ -1230,12 +1154,6 @@ export default function USJPlannerApp() {
             >
                 <Locate size={16}/> {realGpsEnabled ? 'GPS 開啟' : '模擬定位'}
             </button>
-            <button 
-                onClick={() => setShowCalibration(true)}
-                className="p-2 rounded-full bg-gray-200 text-gray-600"
-            >
-                🛠️ 校正
-            </button>
             <button onClick={() => setCurrentView('plan')} className="text-blue-600 text-sm font-bold">返回列表</button>
         </div>
       </div>
@@ -1262,19 +1180,16 @@ export default function USJPlannerApp() {
         >
             {/* Content Wrapper - Image + SVG */}
             <div className="relative shadow-2xl bg-white">
-                {mapImage ? (
-                    <img 
-                        src={mapImage} 
-                        alt="Uploaded Map" 
-                        style={{ display: 'block', maxWidth: 'none', maxHeight: 'none' }}
-                        draggable={false}
-                    />
-                ) : (
-                    <div className="w-80 h-80 flex flex-col items-center justify-center text-gray-400 bg-gray-100">
-                        <MapIcon size={48} className="mb-2 opacity-20"/>
-                        <p className="text-xs">請點擊右下角上傳地圖圖片</p>
-                    </div>
-                )}
+                <img 
+                    src={FIXED_MAP_SRC} 
+                    alt="USJ Map" 
+                    className="block"
+                    draggable={false}
+                    onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "https://www.usj.co.jp/web/d_common/img/usj-map-guide-studio-thumb.jpg";
+                    }}
+                />
 
                 {/* Interactive Overlay Layer */}
                 <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none">
@@ -1292,26 +1207,14 @@ export default function USJPlannerApp() {
                         </g>
                     ))}
 
-                    {/* Attractions (Pinned to Zones) */}
-                    {ATTRACTIONS.map(attr => {
-                        const z = ZONES_MAP[attr.zone]; // 使用 ZONES_MAP
-                        if (!z) return null;
-                        
-                        // 設施跟隨區域座標 + 隨機偏移 (這裡用靜態偏移，避免抖動)
-                        const { ox, oy } = attractionOffsets[attr.id] || { ox: 0, oy: 0 };
-                        return (
-                            <circle key={attr.id} cx={z.x + ox} cy={z.y + oy} r="1.5" fill="#fff" stroke="#333" strokeWidth="0.5" />
-                        );
-                    })}
-
                     {/* User GPS (Calculated via Affine Transform) */}
                     {(() => {
                         // 使用 getCalibratedGps 結合仿射變換與手動微調
-                        const { x, y } = gpsXY;
+                        const { x, y } = realGpsEnabled ? projectGpsToMap(gpsRaw?.lat || 0, gpsRaw?.lng || 0) : gpsLocation;
                         
                         return (
                             <g transform={`translate(${x}, ${y})`}>
-                                <circle r="4" fill="#3b82f6" opacity="0.3" className="animate-ping" />
+                                <circle r="4" fill="#3b82f6" opacity="0.8" className="animate-ping" />
                                 <circle r="2" fill="#3b82f6" stroke="white" strokeWidth="0.5" />
                             </g>
                         );
@@ -1332,32 +1235,6 @@ export default function USJPlannerApp() {
                 <Maximize size={20}/>
             </button>
         </div>
-
-        {/* Upload Button */}
-        <div className="absolute bottom-20 right-4 pointer-events-auto">
-            <button 
-                onClick={() => fileInputRef.current.click()}
-                className="p-3 bg-white rounded-full shadow-lg text-gray-600 hover:text-blue-600 transition-colors"
-                title="上傳地圖圖片"
-            >
-                <ImageIcon size={24}/>
-            </button>
-            <input 
-                type="file" 
-                ref={fileInputRef}
-                onChange={handleMapUpload}
-                accept="image/*"
-                className="hidden"
-            />
-        </div>
-
-        {showCalibration && (
-            <MapCalibrationControls 
-                calibration={mapCalibration} 
-                setCalibration={setMapCalibration} 
-                onClose={() => setShowCalibration(false)}
-            />
-        )}
         
         {/* Simulated GPS Controls (Only show if Real GPS is OFF) */}
         {!realGpsEnabled && (
@@ -1366,7 +1243,7 @@ export default function USJPlannerApp() {
                     // 模擬走到 A 區 (好萊塢)
                     // 這裡直接設定為 A 區的視覺座標
                     const zoneA = ZONES_MAP['hollywood'];
-                    setGpsXY({ x: zoneA.x, y: zoneA.y });
+                    setGpsLocation({ x: zoneA.x, y: zoneA.y });
                 }}>
                     <Navigation size={20} />
                 </button>
