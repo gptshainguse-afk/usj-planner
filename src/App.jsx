@@ -28,24 +28,24 @@ const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
 
 // --- 錨點資料 (用於三角定位計算) ---
 const DEFAULT_ANCHORS = [
-  { id: 'anchor_01', name: '入口', x: 24.2, y: 78.5, lat: 34.667283060417795, lng: 135.43517083037793 },
-  { id: 'anchor_02', name: '太空幻想旁', x: 23.7, y: 47.4, lat: 34.665244660245094, lng: 135.43479822091743 },
-  { id: 'anchor_03', name: '好萊塢轉紐約', x: 23.6, y: 30.0, lat: 34.66410971229068, lng: 135.43453758155675 },
-  { id: 'anchor_04', name: '紐約圖書館附近', x: 45.7, y: 12.5, lat: 34.6632646957783, lng: 135.4324094445585 },
-  { id: 'anchor_05', name: '小小兵樂園入口', x: 62.6, y: 19.1, lat: 34.6639114356349, lng: 135.431013966062 },
-  { id: 'anchor_06', name: '舊金山區域', x: 66.1, y: 26.9, lat: 34.66442377670862, lng: 135.43087089612902 },
-  { id: 'anchor_07', name: '親善村上方', x: 70.3, y: 36.0, lat: 34.66509277680889, lng: 135.43065900161994 },
-  { id: 'anchor_08', name: '中央湖泊右側', x: 80.6, y: 52.5, lat: 34.66601374646661, lng: 135.43008467269595 },
-  { id: 'anchor_09', name: '水世界入口', x: 76.4, y: 68.3, lat: 34.66737523982854, lng: 135.43055662194706 },
-  { id: 'anchor_10', name: '任天堂水管', x: 78.2, y: 83.6, lat: 34.66834561217345, lng: 135.43058822582861 },
-  { id: 'anchor_11', name: '親善村鯊魚拍照點', x: 67.3, y: 71.1, lat: 34.66734389423136, lng: 135.43133703852888 },
-  { id: 'anchor_12', name: '中央公園', x: 54.7, y: 57.8, lat: 34.66633288881512, lng: 135.43224147796707 },
-  { id: 'anchor_13', name: '中央偏北', x: 52.7, y: 64.9, lat: 34.6667335823364, lng: 135.43255724236624 },
-  { id: 'anchor_14', name: '環球奇境史努比', x: 46.5, y: 77.9, lat: 34.66751084804232, lng: 135.43322936942505 },
-  { id: 'anchor_15', name: '環球奇境 Hello Kitty', x: 35.6, y: 74.1, lat: 34.66710007156539, lng: 135.434150646633 },
-  { id: 'anchor_16', name: '中央湖泊左側', x: 38.2, y: 49.2, lat: 34.66554588091339, lng: 135.43357899656752 }
+  { id: 'anchor_01', name: '任天堂入口附近', x: 79.8, y: 82.4, lat: 34.665954, lng: 135.430132 },
+  { id: 'anchor_02', name: '環球奇境入口', x: 24.4, y: 90.3, lat: 34.667291, lng: 135.435171 },
+  { id: 'anchor_03', name: '好萊塢大街中段', x: 23.7, y: 59.6, lat: 34.665266, lng: 135.434769 },
+  { id: 'anchor_04', name: '好萊塢入口', x: 23.6, y: 42.1, lat: 34.664108, lng: 135.434533 },
+  { id: 'anchor_05', name: '中央湖泊右下', x: 38.1, y: 61.2, lat: 34.665532, lng: 135.433582 },
+  { id: 'anchor_06', name: '紐約圖書館附近', x: 45.7, y: 24.5, lat: 34.663261, lng: 135.432410 },
+  { id: 'anchor_07', name: '小小兵樂園入口', x: 62.8, y: 31.2, lat: 34.663903, lng: 135.430998 },
+  { id: 'anchor_08', name: '舊金山/親善村交界', x: 70.2, y: 48.0, lat: 34.665096824637835, lng: 135.43064601640734 },
+  { id: 'anchor_09', name: '水世界入口', x: 76.4, y: 80.2, lat: 34.66736485784719, lng: 135.4305711424196 },
+  { id: 'anchor_10', name: '任天堂水管', x: 82.7, y: 89.2, lat: 34.66790177068606, lng: 135.43023890922498 },
+  { id: 'anchor_11', name: '任天堂庫巴城', x: 78.5, y: 91.1, lat: 34.66833349949073, lng: 135.430608341235 },
+  { id: 'anchor_12', name: '親善村鯊魚拍照點', x: 67.1, y: 78.5, lat: 34.667349134621105, lng: 135.43133772849194 },
+  { id: 'anchor_13', name: '哈利波特巨石陣', x: 66.4, y: 91.8, lat: 34.66819249844099, lng: 135.43161483735398 },
+  { id: 'anchor_14', name: '霍格華茲城堡', x: 63.3, y: 98.5, lat: 34.66856609939835, lng: 135.43200306067715 },
+  { id: 'anchor_15', name: '中央公園', x: 52.7, y: 72.6, lat: 34.66633947267847, lng: 135.43224145307332 },
+  { id: 'anchor_16', name: '環球奇境史努比', x: 46.6, y: 85.4, lat: 34.66751564336594, lng: 135.4332390689687 },
+  { id: 'anchor_17', name: '環球奇境Hello Kitty', x: 35.7, y: 81.7, lat: 34.66710382953858, lng: 135.43414754428568 }
 ];
-
 
 // --- 演算法：最小平方法求解仿射變換矩陣 ---
 function solveLeastSquares(anchors) {
@@ -319,25 +319,6 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
         </div>
     );
 };
-
-// --- Helper: Get Point on Image Relative (Robust) ---
-function getImageRelativePoint(e, imgEl) {
-    const rect = imgEl.getBoundingClientRect();
-  
-    const xPx = e.clientX - rect.left;
-    const yPx = e.clientY - rect.top;
-  
-    // clamp：避免點到圖片外
-    const cx = Math.min(Math.max(xPx, 0), rect.width);
-    const cy = Math.min(Math.max(yPx, 0), rect.height);
-  
-    return {
-      x: (cx / rect.width) * 100,
-      y: (cy / rect.height) * 100,
-      px: cx,
-      py: cy
-    };
-}
 
 // --- Main App Component ---
 
@@ -886,16 +867,7 @@ export default function USJPlannerApp() {
             <div className="relative shadow-2xl bg-white inline-block">
                 <img ref={imgRef} src={FIXED_MAP_SRC} alt="USJ Map" className="block select-none" draggable={false}/>
                 <svg ref={svgRef} viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${isAddAnchorMode ? 'cursor-crosshair' : 'pointer-events-none'}`} onClick={handleMapClick}>
-                    {isAddAnchorMode && anchors.map(a => (
-                        <g key={a.id}>
-                            <circle cx={a.x} cy={a.y} r="1" fill="red" />
-                            {/* 視覺化誤差線 (僅示意) - 實際應計算投影位置 */}
-                            <line x1={a.x-1} y1={a.y} x2={a.x+1} y2={a.y} stroke="red" strokeWidth="0.2"/>
-                            <line x1={a.x} y1={a.y-1} x2={a.x} y2={a.y+1} stroke="red" strokeWidth="0.2"/>
-                            <text x={a.x+2} y={a.y} fontSize="2" fill="red">{a.name}</text>
-                        </g>
-                    ))}
-                    
+                    {anchors.map(a => (<g key={a.id}><circle cx={a.x} cy={a.y} r="1" fill="red" /></g>))}
                     {ZONES_DATA.map(zone => (
                         <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => !isAddAnchorMode && alert(zone.name)}>
                             <circle cx={zone.x} cy={zone.y} r="6" fill={zone.color} opacity="0.6" />
