@@ -1,34 +1,26 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, ZoomIn, ZoomOut, Maximize, Sliders, MapPin, RotateCcw, Image as ImageIcon } from 'lucide-react';
+import { Calendar, Clock, Map as MapIcon, Navigation, Sun, CloudRain, CheckCircle, Settings, Coffee, ShoppingBag, Ticket, Sparkles, AlertCircle, Key, Save, FolderOpen, Trash2, ArrowRight, CreditCard, PlusCircle, X, Globe, Umbrella, Baby, HeartPulse, Zap, Edit, RefreshCw, Plus, Locate, ZoomIn, ZoomOut, Maximize, MapPin, Copy } from 'lucide-react';
 
 // --- 全域設定 ---
 const apiKey = ""; // 預覽環境會自動注入 Key
 
 // --- 地圖設定 ---
-const FIXED_MAP_SRC = "/usj_map.jpg";
+const FIXED_MAP_SRC = "/usj_map.jpg"; // 請確保 public 資料夾有此圖片
 
-// --- 區域資料 (基準點 / Ground Truth) ---
-// 視覺座標 (x, y) 為手動校正，符合您提供的地圖方位
-// GPS (lat, lng) 為真實錨點
+// --- 區域資料 (視覺座標 x,y) ---
+// 這裡的 x,y 是基於 viewBox 0-100 的相對位置
+// 您可以使用下方的「校正模式」點擊地圖來獲取更精確的數值並更新這裡
 const ZONES_DATA = [
-  // 1. 好萊塢 (C點 GPS)
-  { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, lat: 34.666120, lng: 135.434928, color: '#fca5a5' },
-  
-  { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, lat: 34.665500, lng: 135.436000, color: '#93c5fd' },
-  
-  // 2. 小小兵 (B點 GPS)
-  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 50, y: 5, lat: 34.663868, lng: 135.432521, color: '#fde047' },
-  
-  { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 50, y: 30, lat: 34.666000, lng: 135.434000, color: '#d1d5db' },
-  
-  // 3. 侏儸紀 (A點 GPS)
-  { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, lat: 34.665591, lng: 135.430529, color: '#4ade80' },
-  
-  { id: 'waterworld', code: 'F', name: 'F 水世界', x: 91, y: 56, lat: 34.668436, lng: 135.431870, color: '#67e8f9' },
-  { id: 'amity', code: 'G', name: 'G 親善村', x: 65, y: 45, lat: 34.666500, lng: 135.431000, color: '#fdba74' },
-  { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 82, y: 85, lat: 34.670000, lng: 135.432000, color: '#ef4444', textColor: 'white' },
-  { id: 'harry_potter', code: 'I', name: 'I 哈利波特', x: 60, y: 85, lat: 34.665305, lng: 135.429082, color: '#1e293b', textColor: 'white' },
-  { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 32, y: 73, lat: 34.663531, lng: 135.431924, color: '#f9a8d4' },
+  { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, color: '#fca5a5' },
+  { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, color: '#93c5fd' },
+  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 50, y: 5, color: '#fde047' },
+  { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 50, y: 30, color: '#d1d5db' },
+  { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, color: '#4ade80' },
+  { id: 'waterworld', code: 'F', name: 'F 水世界', x: 91, y: 56, color: '#67e8f9' },
+  { id: 'amity', code: 'G', name: 'G 親善村', x: 65, y: 45, color: '#fdba74' },
+  { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 82, y: 85, color: '#ef4444', textColor: 'white' },
+  { id: 'harry_potter', code: 'I', name: 'I 哈利波特', x: 60, y: 85, color: '#1e293b', textColor: 'white' },
+  { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 32, y: 73, color: '#f9a8d4' },
 ];
 
 const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
@@ -36,11 +28,16 @@ const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
     return acc;
 }, {});
 
-// --- 預設錨點 (用於三角定位計算) ---
+// --- 錨點資料 (用於三角定位計算) ---
+// 這裡將「真實 GPS」映射到「地圖座標」
+// 您可以使用校正模式來修正這裡的 x, y 值
 const DEFAULT_ANCHORS = [
-  { id: 'anchor_a', name: 'A 侏儸紀入口', x: 85, y: 30, lat: 34.665591, lng: 135.430529 },
-  { id: 'anchor_b', name: 'B 小小兵路口', x: 50, y: 5, lat: 34.663868, lng: 135.432521 },
-  { id: 'anchor_c', name: 'C 好萊塢入口', x: 15, y: 50, lat: 34.666120, lng: 135.434928 }
+  // A 點: 侏儸紀入口
+  { id: 'anchor_a', name: 'A 侏儸紀入口', x: 85.0, y: 30.0, lat: 34.665591, lng: 135.430529 },
+  // B 點: 小小兵路口
+  { id: 'anchor_b', name: 'B 小小兵路口', x: 50.0, y: 5.0, lat: 34.663868, lng: 135.432521 },
+  // C 點: 好萊塢入口
+  { id: 'anchor_c', name: 'C 好萊塢入口', x: 15.0, y: 50.0, lat: 34.666120, lng: 135.434928 }
 ];
 
 // --- 演算法：最小平方法求解仿射變換矩陣 ---
@@ -106,7 +103,7 @@ const projectWithMatrix = (lat, lng, matrix) => {
     return { x, y };
 };
 
-// --- 資料庫定義 ---
+// --- 資料庫定義 (完整版) ---
 
 const ATTRACTIONS = [
   { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'nintendo', type: 'ride', wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
@@ -289,37 +286,6 @@ const FACILITY_DATABASE = [
   {id:158,name:"Goblet Toss",desc:"丟球遊戲。",type:"game"}
 ];
 
-const EXPRESS_PASS_RAW = [
-  "1. 快速通關券8 - Minecart & Minion Mayhem Special",
-  "2. 快速通關券8 - Minion & Minecart Special",
-  "3. 快速通關券7 - Minecart & Minion Mayhem",
-  "4. 快速通關券7 - Minecart & Selection",
-  "5. 快速通關券5 - Minecart & JAWS Special",
-  "6. 快速通關券5 - Adventure Special",
-  "7. 快速通關券5 - Race & Minion Mayhem Special",
-  "8. 快速通關券5 - Race & Minecart Special",
-  "9. 快速通關券5 - Race & Minion Special",
-  "10. 快速通關券4 - Minecart & Fun",
-  "11. 快速通關券4 - Minecart & JAWS",
-  "12. 快速通關券4 - Minecart & Jurassic Park",
-  "13. 快速通關券4 - Minecart & Flying Dinosaur",
-  "14. 快速通關券4 - Race & Minecart",
-  "15. 快速通關券4 - XR Ride & Race",
-  "16. 快速通關券4 - Race & Thrills",
-  "17. 快速通關券4 - XR Ride & The Flying Dinosaur",
-  "18. 快速通關券4 - Backdrop & Choice",
-  "19. 快速通關券4 - Thrills & Selection",
-  "20. 快速通關券4 - XR Ride & Jurassic Park",
-  "21. 快速通關券4 - 逆轉世界",
-  "22. 快速通關券4 - Minecart & Hollywood Dream",
-  "23. 快速通關券4 - Flying Dinosaur & JAWS",
-  "24. 快速通關券4 - Space Fantasy & Race",
-  "25. 快速通關券4 - Flying Dinosaur & 4-D",
-  "26. 快速通關券4 - Flying Dinosaur & Jurassic Park",
-  "27. 快速通關券4 - One More Race & Ride Selection",
-  "28. 快速通關券4 - Race & JAWS"
-];
-
 const EXPRESS_PASS_DEFINITIONS = {
   1:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'minion_mayhem',t:true}, {id:'hippogriff',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'conan_4d',t:true}, {id:'jurassic_park',t:false}],
   2:  [{id:'mario_kart',t:true}, {id:'yoshi',t:true}, {id:'donkey_kong',t:true}, {id:'harry_potter_journey',t:true}, {id:'hippogriff',t:true}, {id:'minion_mayhem',t:true}, {id:'flying_dinosaur',t:false, choice:'or_minion'}, {id:'jaws',t:false, choice:'or_jurassic'}],
@@ -351,6 +317,37 @@ const EXPRESS_PASS_DEFINITIONS = {
   28: [{id:'mario_kart',t:true}, {id:'harry_potter_journey',t:true}, {id:'minion_mayhem',t:false}, {id:'jaws',t:false, choice:'or_jurassic'}]
 };
 
+const EXPRESS_PASS_RAW = [
+  "1. 快速通關券8 - Minecart & Minion Mayhem Special",
+  "2. 快速通關券8 - Minion & Minecart Special",
+  "3. 快速通關券7 - Minecart & Minion Mayhem",
+  "4. 快速通關券7 - Minecart & Selection",
+  "5. 快速通關券5 - Minecart & JAWS Special",
+  "6. 快速通關券5 - Adventure Special",
+  "7. 快速通關券5 - Race & Minion Mayhem Special",
+  "8. 快速通關券5 - Race & Minecart Special",
+  "9. 快速通關券5 - Race & Minion Special",
+  "10. 快速通關券4 - Minecart & Fun",
+  "11. 快速通關券4 - Minecart & JAWS",
+  "12. 快速通關券4 - Minecart & Jurassic Park",
+  "13. 快速通關券4 - Minecart & Flying Dinosaur",
+  "14. 快速通關券4 - Race & Minecart",
+  "15. 快速通關券4 - XR Ride & Race",
+  "16. 快速通關券4 - Race & Thrills",
+  "17. 快速通關券4 - XR Ride & The Flying Dinosaur",
+  "18. 快速通關券4 - Backdrop & Choice",
+  "19. 快速通關券4 - Thrills & Selection",
+  "20. 快速通關券4 - XR Ride & Jurassic Park",
+  "21. 快速通關券4 - 逆轉世界",
+  "22. 快速通關券4 - Minecart & Hollywood Dream",
+  "23. 快速通關券4 - Flying Dinosaur & JAWS",
+  "24. 快速通關券4 - Space Fantasy & Race",
+  "25. 快速通關券4 - Flying Dinosaur & 4-D",
+  "26. 快速通關券4 - Flying Dinosaur & Jurassic Park",
+  "27. 快速通關券4 - One More Race & Ride Selection",
+  "28. 快速通關券4 - Race & JAWS"
+];
+
 const getExpressPassContent = (passName) => {
   if (!passName) return [];
   const indexStr = passName.split('.')[0];
@@ -367,7 +364,18 @@ const getExpressPassContent = (passName) => {
   return [{ id: 'mario_kart', timed: true }];
 };
 
-// --- Edit Modal ---
+// --- Helper Functions ---
+function getSvgPoint(evt, svgEl) {
+  const pt = svgEl.createSVGPoint();
+  pt.x = evt.clientX;
+  pt.y = evt.clientY;
+  const ctm = svgEl.getScreenCTM();
+  if (!ctm) return null;
+  const p = pt.matrixTransform(ctm.inverse());
+  return { x: p.x, y: p.y };
+}
+
+// --- Components ---
 const EditModal = ({ isOpen, onClose, item, onSave }) => {
     const [name, setName] = useState('');
     const [startTime, setStartTime] = useState('');
@@ -438,19 +446,6 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
     );
 };
 
-// --- Helper: Get SVG Point ---
-function getSvgPoint(evt, svgEl) {
-  const pt = svgEl.createSVGPoint();
-  pt.x = evt.clientX;
-  pt.y = evt.clientY;
-  const ctm = svgEl.getScreenCTM();
-  if (!ctm) return null;
-  const p = pt.matrixTransform(ctm.inverse());
-  return { x: p.x, y: p.y }; 
-}
-
-// --- Main App Component ---
-
 export default function USJPlannerApp() {
   const [currentView, setCurrentView] = useState('home'); 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -512,7 +507,7 @@ export default function USJPlannerApp() {
   
   const [itinerary, setItinerary] = useState([]);
   
-  // GPS States
+  // GPS & Map States
   const [gpsRaw, setGpsRaw] = useState(null); 
   const [gpsXY, setGpsXY] = useState({ x: 50, y: 95 }); 
   const [lastGpsFix, setLastGpsFix] = useState(null); 
@@ -520,7 +515,7 @@ export default function USJPlannerApp() {
   const [realGpsEnabled, setRealGpsEnabled] = useState(false);
   const [displayWeather, setDisplayWeather] = useState({ condition: 'sunny', temp: 15, text: '尚未取得天氣資訊' });
   
-  // Anchors State
+  // Anchor / Debug Mode
   const [anchors, setAnchors] = useState(() => {
       const saved = localStorage.getItem('usj_anchors');
       return saved ? JSON.parse(saved) : DEFAULT_ANCHORS;
@@ -535,6 +530,7 @@ export default function USJPlannerApp() {
   // Map Interaction State
   const mapContainerRef = useRef(null);
   const svgRef = useRef(null);
+  const imgRef = useRef(null);
   const [viewState, setViewState] = useState({ scale: 1, x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [startPan, setStartPan] = useState({ x: 0, y: 0 });
@@ -551,25 +547,19 @@ export default function USJPlannerApp() {
       return offsets;
   }, []);
 
+  // Update Matrix when anchors change
   useEffect(() => {
       localStorage.setItem('usj_anchors', JSON.stringify(anchors));
       const matrix = solveLeastSquares(anchors);
       setAffineMatrix(matrix);
   }, [anchors]);
 
-  useEffect(() => {
-    localStorage.setItem('usj_api_key', userApiKey);
-  }, [userApiKey]);
+  // Persist State
+  useEffect(() => { localStorage.setItem('usj_api_key', userApiKey); }, [userApiKey]);
+  useEffect(() => { localStorage.setItem('usj_form_data', JSON.stringify(formData)); }, [formData]);
+  useEffect(() => { localStorage.setItem('usj_saved_plans', JSON.stringify(savedPlans)); }, [savedPlans]);
 
-  useEffect(() => {
-    localStorage.setItem('usj_form_data', JSON.stringify(formData));
-  }, [formData]);
-
-  useEffect(() => {
-    localStorage.setItem('usj_saved_plans', JSON.stringify(savedPlans));
-  }, [savedPlans]);
-
-  // GPS Tracking Effect
+  // GPS Tracking Logic
   useEffect(() => {
     let watchId;
     if (realGpsEnabled && currentView === 'map') {
@@ -588,8 +578,11 @@ export default function USJPlannerApp() {
                 setLastGpsFix({ lat, lng, acc });
                 setGpsRaw({ lat, lng, acc });
 
-                const { x, y } = projectWithMatrix(lat, lng, affineMatrix || solveLeastSquares(DEFAULT_ANCHORS));
+                // Use calculated matrix or fallback
+                const matrix = affineMatrix || solveLeastSquares(DEFAULT_ANCHORS);
+                const { x, y } = projectWithMatrix(lat, lng, matrix);
                 
+                // Clamp
                 const cx = Math.min(Math.max(x, 0), 100);
                 const cy = Math.min(Math.max(y, 0), 100);
 
@@ -598,7 +591,7 @@ export default function USJPlannerApp() {
             (error) => {
                 console.error("GPS Error:", error);
             },
-            { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+            { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
         );
     }
     return () => {
@@ -606,29 +599,16 @@ export default function USJPlannerApp() {
     };
   }, [realGpsEnabled, currentView, affineMatrix]);
 
+  // Handlers
   const handleInputChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
-  
-  const addExpressPass = () => {
-    setFormData(prev => ({ ...prev, expressPasses: [...prev.expressPasses, { id: Date.now(), name: '', times: {} }] }));
-  };
-  const removeExpressPass = (id) => {
-    setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.filter(p => p.id !== id) }));
-  };
-  const updateExpressPassName = (id, newName) => {
-    setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.map(p => p.id === id ? { ...p, name: newName, times: {} } : p) }));
-  };
-  const updateExpressPassTime = (passId, attractionId, time) => {
-    setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.map(p => p.id === passId ? { ...p, times: { ...p.times, [attractionId]: time } } : p) }));
-  };
+  const addExpressPass = () => setFormData(prev => ({ ...prev, expressPasses: [...prev.expressPasses, { id: Date.now(), name: '', times: {} }] }));
+  const removeExpressPass = (id) => setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.filter(p => p.id !== id) }));
+  const updateExpressPassName = (id, newName) => setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.map(p => p.id === id ? { ...p, name: newName, times: {} } : p) }));
+  const updateExpressPassTime = (passId, attractionId, time) => setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.map(p => p.id === passId ? { ...p, times: { ...p.times, [attractionId]: time } } : p) }));
 
-  const handleEditItem = (item) => {
-      setEditingItem(item);
-      setIsEditModalOpen(true);
-  };
-  const handleAddItem = () => {
-      setEditingItem(null); 
-      setIsEditModalOpen(true);
-  };
+  // CRUD
+  const handleEditItem = (item) => { setEditingItem(item); setIsEditModalOpen(true); };
+  const handleAddItem = () => { setEditingItem(null); setIsEditModalOpen(true); };
   const handleSaveItem = (newItem) => {
       let newItinerary;
       if (editingItem) {
@@ -644,6 +624,7 @@ export default function USJPlannerApp() {
           setItinerary(prev => prev.filter(i => i !== itemToDelete));
       }
   };
+
   const saveCurrentPlan = () => {
     if (itinerary.length === 0) return;
     const newPlan = { id: Date.now(), timestamp: new Date().toLocaleString(), name: `${formData.date}行程`, formData, itinerary, weather: displayWeather };
@@ -663,8 +644,9 @@ export default function USJPlannerApp() {
       if(window.confirm("確定要重置所有校正點嗎？")) {
           setAnchors(DEFAULT_ANCHORS);
       }
-  }
+  };
 
+  // AI Logic
   const callGeminiAPI = async () => {
       const activeKey = userApiKey || apiKey;
       if (!activeKey) { setErrorMsg("請輸入 API Key"); return; }
@@ -803,6 +785,7 @@ export default function USJPlannerApp() {
       }
   };
 
+  // Map Interaction Handlers
   const handleZoom = (direction) => setViewState(prev => ({ ...prev, scale: Math.min(Math.max(prev.scale + (direction * 0.5), 1), 5) }));
   const handleResetMap = () => setViewState({ scale: 1, x: 0, y: 0 });
   const onMouseDown = (e) => { setIsDragging(true); setStartPan({ x: e.clientX - viewState.x, y: e.clientY - viewState.y }); };
@@ -812,17 +795,28 @@ export default function USJPlannerApp() {
   const onTouchMove = (e) => { if (!isDragging || e.touches.length !== 1) return; setViewState(prev => ({ ...prev, x: e.touches[0].clientX - startPan.x, y: e.touches[0].clientY - startPan.y })); };
   const onTouchEnd = () => setIsDragging(false);
 
+  // Add Anchor Logic
   const handleMapClick = (e) => {
       if (!isAddAnchorMode) return;
       if (!lastGpsFix && !gpsRaw) { alert("尚未取得 GPS 訊號"); return; }
+      
       const svgEl = svgRef.current;
       const p = getSvgPoint(e, svgEl);
       if (!p) return;
+
       const currentGps = lastGpsFix || gpsRaw;
-      const name = prompt("錨點名稱：");
+      const name = prompt("請輸入此校正點名稱（例如：小小兵入口）：");
       if (name) {
-          setAnchors(prev => [...prev, { id: Date.now(), name, x: parseFloat(p.x.toFixed(2)), y: parseFloat(p.y.toFixed(2)), lat: currentGps.lat, lng: currentGps.lng }]);
+          setAnchors(prev => [...prev, { 
+              id: Date.now(), 
+              name, 
+              x: parseFloat(p.x.toFixed(2)), 
+              y: parseFloat(p.y.toFixed(2)), 
+              lat: currentGps.lat, 
+              lng: currentGps.lng 
+          }]);
           setIsAddAnchorMode(false);
+          alert("校正點已新增！定位精準度將提升。");
       }
   };
 
@@ -834,13 +828,14 @@ export default function USJPlannerApp() {
         <p className="opacity-90 text-sm">輸入您的需求，AI 為您客製化最佳攻略</p>
       </div>
       <div className="px-4 space-y-4">
+        {/* Same Home UI */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-100">
-           <label className="block text-sm font-bold text-blue-800 mb-2 flex items-center gap-2"><Key size={16} /> Gemini API Key (選填)</label>
-           <input type="password" placeholder="若無環境變數，請輸入您的 Key (自動儲存)" value={userApiKey} onChange={(e) => setUserApiKey(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-blue-50 focus:ring-2 focus:ring-blue-500 outline-none"/>
+           <label className="block text-sm font-bold text-blue-800 mb-2 flex items-center gap-2"><Key size={16} /> Gemini API Key</label>
+           <input type="password" value={userApiKey} onChange={(e) => setUserApiKey(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-blue-50 focus:ring-2 focus:ring-blue-500 outline-none"/>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><Calendar size={18} /> 入園日期</label>
-          <input type="date" value={formData.date} onChange={(e) => handleInputChange('date', e.target.value)} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/>
+          <input type="date" value={formData.date} onChange={(e) => handleInputChange('date', e.target.value)} className="w-full p-2 border rounded-lg"/>
         </div>
         
         {/* Preference Mode */}
