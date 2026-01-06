@@ -8,17 +8,18 @@ const apiKey = ""; // 預覽環境會自動注入 Key
 const FIXED_MAP_SRC = "/usj_map.jpg"; // 請確保 public 資料夾有此圖片
 
 // --- 區域資料 (視覺座標 x,y) ---
+// 根據您的校正更新
 const ZONES_DATA = [
   { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, color: '#fca5a5' },
   { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, color: '#93c5fd' },
-  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 50, y: 5, color: '#fde047' },
-  { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 50, y: 30, color: '#d1d5db' },
+  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 45.3, y: 17.2, color: '#fde047' },
+  { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 49.8, y: 34.4, color: '#d1d5db' },
   { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, color: '#4ade80' },
-  { id: 'waterworld', code: 'F', name: 'F 水世界', x: 91, y: 56, color: '#67e8f9' },
+  { id: 'waterworld', code: 'F', name: 'F 水世界', x: 84.6, y: 74.1, color: '#67e8f9' },
   { id: 'amity', code: 'G', name: 'G 親善村', x: 65, y: 45, color: '#fdba74' },
-  { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 82, y: 85, color: '#ef4444', textColor: 'white' },
-  { id: 'harry_potter', code: 'I', name: 'I 哈利波特', x: 60, y: 85, color: '#1e293b', textColor: 'white' },
-  { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 32, y: 73, color: '#f9a8d4' },
+  { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 81.6, y: 88.9, color: '#ef4444', textColor: 'white' },
+  { id: 'harry_potter', code: 'I', name: 'I 哈利波特', x: 65.3, y: 95.9, color: '#1e293b', textColor: 'white' },
+  { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 44.5, y: 82.9, color: '#f9a8d4' },
 ];
 
 const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
@@ -27,23 +28,36 @@ const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
 }, {});
 
 // --- 錨點資料 (用於三角定位計算) ---
+// 包含 17 個精確校正點
 const DEFAULT_ANCHORS = [
-  { id: 'anchor_a', name: 'A 侏儸紀入口', x: 85.0, y: 30.0, lat: 34.665591, lng: 135.430529 },
-  { id: 'anchor_b', name: 'B 小小兵路口', x: 50.0, y: 5.0, lat: 34.663868, lng: 135.432521 },
-  { id: 'anchor_c', name: 'C 好萊塢入口', x: 15.0, y: 50.0, lat: 34.666120, lng: 135.434928 }
+  { id: 'anchor_01', name: '任天堂入口附近', x: 79.8, y: 82.4, lat: 34.665954, lng: 135.430132 },
+  { id: 'anchor_02', name: '環球奇境入口', x: 24.4, y: 90.3, lat: 34.667291, lng: 135.435171 },
+  { id: 'anchor_03', name: '好萊塢大街中段', x: 23.7, y: 59.6, lat: 34.665266, lng: 135.434769 },
+  { id: 'anchor_04', name: '好萊塢入口', x: 23.6, y: 42.1, lat: 34.664108, lng: 135.434533 },
+  { id: 'anchor_05', name: '中央湖泊右下', x: 38.1, y: 61.2, lat: 34.665532, lng: 135.433582 },
+  { id: 'anchor_06', name: '紐約圖書館附近', x: 45.7, y: 24.5, lat: 34.663261, lng: 135.432410 },
+  { id: 'anchor_07', name: '小小兵樂園入口', x: 62.8, y: 31.2, lat: 34.663903, lng: 135.430998 },
+  { id: 'anchor_08', name: '舊金山/親善村交界', x: 70.2, y: 48.0, lat: 34.665096824637835, lng: 135.43064601640734 },
+  { id: 'anchor_09', name: '水世界入口', x: 76.4, y: 80.2, lat: 34.66736485784719, lng: 135.4305711424196 },
+  { id: 'anchor_10', name: '任天堂水管', x: 82.7, y: 89.2, lat: 34.66790177068606, lng: 135.43023890922498 },
+  { id: 'anchor_11', name: '任天堂庫巴城', x: 78.5, y: 91.1, lat: 34.66833349949073, lng: 135.430608341235 },
+  { id: 'anchor_12', name: '親善村鯊魚拍照點', x: 67.1, y: 78.5, lat: 34.667349134621105, lng: 135.43133772849194 },
+  { id: 'anchor_13', name: '哈利波特巨石陣', x: 66.4, y: 91.8, lat: 34.66819249844099, lng: 135.43161483735398 },
+  { id: 'anchor_14', name: '霍格華茲城堡', x: 63.3, y: 98.5, lat: 34.66856609939835, lng: 135.43200306067715 },
+  { id: 'anchor_15', name: '中央公園', x: 52.7, y: 72.6, lat: 34.66633947267847, lng: 135.43224145307332 },
+  { id: 'anchor_16', name: '環球奇境史努比', x: 46.6, y: 85.4, lat: 34.66751564336594, lng: 135.4332390689687 },
+  { id: 'anchor_17', name: '環球奇境Hello Kitty', x: 35.7, y: 81.7, lat: 34.66710382953858, lng: 135.43414754428568 }
 ];
 
 // --- 演算法：最小平方法求解仿射變換矩陣 ---
 function solveLeastSquares(anchors) {
-    // 過濾掉沒有 GPS 資料的點 (僅用於視覺校正的點不參與計算)
-    const validAnchors = anchors.filter(a => a.lat != null && a.lng != null);
-    const n = validAnchors.length;
+    const n = anchors.length;
     if (n < 3) return null; 
 
     let sumLat = 0, sumLng = 0, sumLat2 = 0, sumLng2 = 0, sumLatLng = 0;
     let sumX = 0, sumY = 0, sumXLat = 0, sumXLng = 0, sumYLat = 0, sumYLng = 0;
 
-    for (const p of validAnchors) {
+    for (const p of anchors) {
         sumLat += p.lat;
         sumLng += p.lng;
         sumLat2 += p.lat * p.lat;
@@ -97,30 +111,6 @@ const projectWithMatrix = (lat, lng, matrix) => {
     const y = d * lat + e * lng + f;
     return { x, y };
 };
-
-// --- Helper: Get ViewBox Point from Click (Robust) ---
-function getViewBoxPointFromClick(e, mapContainerEl, viewState, imgEl) {
-    const rect = mapContainerEl.getBoundingClientRect();
-  
-    // click position in container
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-  
-    // invert translate+scale (Using 0,0 transform origin logic)
-    const localX = (cx - viewState.x) / viewState.scale;
-    const localY = (cy - viewState.y) / viewState.scale;
-  
-    const renderedW = imgEl.clientWidth;
-    const renderedH = imgEl.clientHeight;
-    
-    // Safety check
-    if (renderedW === 0 || renderedH === 0) return null;
-  
-    const x = (localX / renderedW) * 100;
-    const y = (localY / renderedH) * 100;
-  
-    return { x, y, localX, localY };
-}
 
 // --- 資料庫定義 (完整版) ---
 
@@ -312,6 +302,17 @@ const EditModal = ({ isOpen, onClose, item, onSave }) => {
         </div>
     );
 };
+
+// --- Helper: Get SVG Point ---
+function getSvgPoint(evt, svgEl) {
+  const pt = svgEl.createSVGPoint();
+  pt.x = evt.clientX;
+  pt.y = evt.clientY;
+  const ctm = svgEl.getScreenCTM();
+  if (!ctm) return null;
+  const p = pt.matrixTransform(ctm.inverse());
+  return { x: p.x, y: p.y }; 
+}
 
 // --- Main App Component ---
 
