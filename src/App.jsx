@@ -16,7 +16,7 @@ const ZONES_DATA = [
   { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, color: '#4ade80' },
   { id: 'waterworld', code: 'F', name: 'F 水世界', x: 84.7, y: 61.4, color: '#67e8f9' },
   { id: 'amity', code: 'G', name: 'G 親善村', x: 65, y: 45, color: '#fdba74' },
-  { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 81.6, y: 77.5, color: '#ef4444', textColor: 'white' },
+  { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 81.6, y: 88.9, color: '#ef4444', textColor: 'white' },
   { id: 'harry_potter', code: 'I', name: 'I 哈利波特', x: 65.7, y: 80.9, color: '#1e293b', textColor: 'white' },
   { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 41.9, y: 67.5, color: '#f9a8d4' },
 ];
@@ -27,10 +27,11 @@ const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
 }, {});
 
 // --- 錨點資料 (用於三角定位計算) ---
+// 更新為您提供的 16 組高精度錨點
 const DEFAULT_ANCHORS = [
-  { id: 'anchor_01', name: '入口', x: 24.1, y: 78.5, lat: 34.667283060417795, lng: 135.43517083037793 },
-  { id: 'anchor_02', name: '太空幻想旁', x: 24.1, y: 47.4, lat: 34.665244660245094, lng: 135.43479822091743 },
-  { id: 'anchor_03', name: '好萊塢轉紐約', x: 23.7, y: 30.0, lat: 34.66410971229068, lng: 135.43453758155675 },
+  { id: 'anchor_01', name: '入口', x: 24.2, y: 78.5, lat: 34.667283060417795, lng: 135.43517083037793 },
+  { id: 'anchor_02', name: '太空幻想旁', x: 23.7, y: 47.4, lat: 34.665244660245094, lng: 135.43479822091743 },
+  { id: 'anchor_03', name: '好萊塢轉紐約', x: 23.6, y: 30.0, lat: 34.66410971229068, lng: 135.43453758155675 },
   { id: 'anchor_04', name: '紐約圖書館附近', x: 45.7, y: 12.5, lat: 34.6632646957783, lng: 135.4324094445585 },
   { id: 'anchor_05', name: '小小兵樂園入口', x: 62.6, y: 19.1, lat: 34.6639114356349, lng: 135.431013966062 },
   { id: 'anchor_06', name: '舊金山區域', x: 66.1, y: 26.9, lat: 34.66442377670862, lng: 135.43087089612902 },
@@ -42,10 +43,9 @@ const DEFAULT_ANCHORS = [
   { id: 'anchor_12', name: '中央公園', x: 54.7, y: 57.8, lat: 34.66633288881512, lng: 135.43224147796707 },
   { id: 'anchor_13', name: '中央偏北', x: 52.7, y: 64.9, lat: 34.6667335823364, lng: 135.43255724236624 },
   { id: 'anchor_14', name: '環球奇境史努比', x: 46.5, y: 77.9, lat: 34.66751084804232, lng: 135.43322936942505 },
-  { id: 'anchor_15', name: '環球奇境 Hello Kitty', x: 35.7, y: 74.1, lat: 34.66710007156539, lng: 135.434150646633 },
-  { id: 'anchor_16', name: '中央湖泊左側', x: 38.1, y: 49.2, lat: 34.66554588091339, lng: 135.43357899656752 }
+  { id: 'anchor_15', name: '環球奇境 Hello Kitty', x: 35.6, y: 74.1, lat: 34.66710007156539, lng: 135.434150646633 },
+  { id: 'anchor_16', name: '中央湖泊左側', x: 38.2, y: 49.2, lat: 34.66554588091339, lng: 135.43357899656752 }
 ];
-
 
 // --- 演算法：最小平方法求解仿射變換矩陣 ---
 function solveLeastSquares(anchors) {
@@ -327,6 +327,9 @@ export default function USJPlannerApp() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
+  // GPS Permission State: 'prompt', 'granted', 'denied', 'unsupported'
+  const [gpsPermission, setGpsPermission] = useState('prompt');
+
   const [userApiKey, setUserApiKey] = useState(() => {
     return localStorage.getItem('usj_api_key') || '';
   });
@@ -424,6 +427,25 @@ export default function USJPlannerApp() {
       return offsets;
   }, []);
 
+  // Check GPS Permission on Mount
+  useEffect(() => {
+    if (!navigator.permissions || !navigator.permissions.query) {
+      setGpsPermission('unsupported');
+      return;
+    }
+    
+    navigator.permissions.query({ name: 'geolocation' })
+      .then(result => {
+        setGpsPermission(result.state);
+        result.onchange = () => {
+          setGpsPermission(result.state);
+        };
+      })
+      .catch(() => {
+        setGpsPermission('unsupported'); // Fallback for browsers that don't support query
+      });
+  }, []);
+
   // Update Matrix when anchors change
   useEffect(() => {
       localStorage.setItem('usj_anchors', JSON.stringify(anchors));
@@ -467,6 +489,10 @@ export default function USJPlannerApp() {
             },
             (error) => {
                 console.error("GPS Error:", error);
+                if (error.code === error.PERMISSION_DENIED) {
+                    setGpsPermission('denied');
+                    setRealGpsEnabled(false);
+                }
             },
             { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
         );
@@ -671,12 +697,12 @@ export default function USJPlannerApp() {
   const onTouchMove = (e) => { if (!isDragging || e.touches.length !== 1) return; setViewState(prev => ({ ...prev, x: e.touches[0].clientX - startPan.x, y: e.touches[0].clientY - startPan.y })); };
   const onTouchEnd = () => setIsDragging(false);
 
-  // Add Anchor Logic - UPDATED TO USE getImageRelativePoint
+  // Add Anchor Logic
   const handleMapClick = (e) => {
       if (!isAddAnchorMode) return;
       if (!imgRef.current) return;
 
-      const p = getImageRelativePoint(e, imgRef.current);
+      const p = getPointOnImagePercent(e, imgRef.current);
       if (!p) return;
 
       const currentGps = lastGpsFix || gpsRaw;
@@ -694,6 +720,42 @@ export default function USJPlannerApp() {
           alert(`校正點已新增！(x:${p.x.toFixed(1)}, y:${p.y.toFixed(1)})`);
       }
   };
+  
+  // GPS Permission Request Handler
+  const requestGpsPermission = () => {
+    if (!navigator.geolocation) {
+        alert('此瀏覽器不支援 GPS');
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            // User allowed GPS
+            setGpsPermission('granted');
+            console.log('GPS OK', pos.coords);
+            setRealGpsEnabled(true);
+        },
+        (err) => {
+            if (err.code === err.PERMISSION_DENIED) {
+                setGpsPermission('denied');
+            }
+        },
+        { enableHighAccuracy: true }
+    );
+  };
+
+  // Helper: Get Point on Image Percent (Robust)
+  function getPointOnImagePercent(e, imgEl) {
+    const rect = imgEl.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const cx = Math.min(Math.max(px, 0), r.width);
+    const cy = Math.min(Math.max(py, 0), r.height);
+    return {
+      x: (cx / rect.width) * 100,
+      y: (cy / rect.height) * 100
+    };
+  }
 
   // Load map image from local storage (or use default)
   useEffect(() => {
@@ -858,7 +920,18 @@ export default function USJPlannerApp() {
        <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center">
         <h2 className="font-bold flex items-center gap-2"><MapIcon size={20}/> 園區導航</h2>
         <div className="flex gap-2">
-            <button onClick={() => setRealGpsEnabled(!realGpsEnabled)} className={`p-2 rounded-full transition-colors flex items-center gap-1 ${realGpsEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}><Locate size={16}/> {realGpsEnabled ? 'GPS ON' : '模擬'}</button>
+            <button 
+                onClick={() => {
+                  if (gpsPermission === 'denied') {
+                    alert('GPS 已被封鎖，請至瀏覽器設定中開啟定位權限');
+                    return;
+                  }
+                  requestGpsPermission();
+                }}
+                className={`p-2 rounded-full transition-colors flex items-center gap-1 ${realGpsEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}
+            >
+                <Locate size={16}/> {realGpsEnabled ? 'GPS 開啟' : '啟用 GPS'}
+            </button>
             <button onClick={() => setCurrentView('plan')} className="text-blue-600 text-sm font-bold">列表</button>
         </div>
       </div>
@@ -867,7 +940,7 @@ export default function USJPlannerApp() {
             <div className="relative shadow-2xl bg-white inline-block">
                 <img ref={imgRef} src={FIXED_MAP_SRC} alt="USJ Map" className="block select-none" draggable={false}/>
                 <svg ref={svgRef} viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${isAddAnchorMode ? 'cursor-crosshair' : 'pointer-events-none'}`} onClick={handleMapClick}>
-                    {anchors.map(a => (<g key={a.id}><circle cx={a.x} cy={a.y} r="1" fill="red" /></g>))}
+                    {isAddAnchorMode && anchors.map(a => (<g key={a.id}><circle cx={a.x} cy={a.y} r="1" fill="red" /></g>))}
                     {ZONES_DATA.map(zone => (
                         <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => !isAddAnchorMode && alert(zone.name)}>
                             <circle cx={zone.x} cy={zone.y} r="6" fill={zone.color} opacity="0.6" />
