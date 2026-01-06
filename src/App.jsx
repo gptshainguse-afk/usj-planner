@@ -30,23 +30,24 @@ const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
 // --- 錨點資料 (用於三角定位計算) ---
 // 包含 16 個精確校正點
 const DEFAULT_ANCHORS = [
-  { id: 'anchor_01', name: '校正點 1', x: 24.2, y: 78.5, lat: 34.667283060417795, lng: 135.43517083037793 },
-  { id: 'anchor_02', name: '校正點 2', x: 23.7, y: 47.4, lat: 34.665244660245094, lng: 135.43479822091743 },
-  { id: 'anchor_03', name: '校正點 3', x: 23.6, y: 30.0, lat: 34.66410971229068, lng: 135.43453758155675 },
-  { id: 'anchor_04', name: '校正點 4', x: 45.7, y: 12.5, lat: 34.6632646957783, lng: 135.4324094445585 },
-  { id: 'anchor_05', name: '校正點 5', x: 62.6, y: 19.1, lat: 34.6639114356349, lng: 135.431013966062 },
-  { id: 'anchor_06', name: '校正點 6', x: 66.1, y: 26.9, lat: 34.66442377670862, lng: 135.43087089612902 },
-  { id: 'anchor_07', name: '校正點 7', x: 70.3, y: 36.0, lat: 34.66509277680889, lng: 135.43065900161994 },
-  { id: 'anchor_08', name: '校正點 8', x: 80.6, y: 52.5, lat: 34.66601374646661, lng: 135.43008467269595 },
-  { id: 'anchor_09', name: '校正點 9', x: 76.4, y: 68.3, lat: 34.66737523982854, lng: 135.43055662194706 },
-  { id: 'anchor_10', name: '校正點 10', x: 78.2, y: 83.6, lat: 34.66834561217345, lng: 135.43058822582861 },
-  { id: 'anchor_11', name: '校正點 11', x: 67.3, y: 71.1, lat: 34.66734389423136, lng: 135.43133703852888 },
-  { id: 'anchor_12', name: '校正點 12', x: 54.7, y: 57.8, lat: 34.66633288881512, lng: 135.43224147796707 },
-  { id: 'anchor_13', name: '校正點 13', x: 52.7, y: 64.9, lat: 34.6667335823364, lng: 135.43255724236624 },
-  { id: 'anchor_14', name: '校正點 14', x: 46.5, y: 77.9, lat: 34.66751084804232, lng: 135.43322936942505 },
-  { id: 'anchor_15', name: '校正點 15', x: 35.6, y: 74.1, lat: 34.66710007156539, lng: 135.434150646633 },
-  { id: 'anchor_16', name: '校正點 16', x: 38.2, y: 49.2, lat: 34.66554588091339, lng: 135.43357899656752 }
+  { id: 'anchor_01', name: '入口', x: 24.2, y: 78.5, lat: 34.667283060417795, lng: 135.43517083037793 },
+  { id: 'anchor_02', name: '太空幻想旁', x: 23.7, y: 47.4, lat: 34.665244660245094, lng: 135.43479822091743 },
+  { id: 'anchor_03', name: '好萊塢轉紐約', x: 23.6, y: 30.0, lat: 34.66410971229068, lng: 135.43453758155675 },
+  { id: 'anchor_04', name: '紐約圖書館附近', x: 45.7, y: 12.5, lat: 34.6632646957783, lng: 135.4324094445585 },
+  { id: 'anchor_05', name: '小小兵樂園入口', x: 62.6, y: 19.1, lat: 34.6639114356349, lng: 135.431013966062 },
+  { id: 'anchor_06', name: '舊金山區域', x: 66.1, y: 26.9, lat: 34.66442377670862, lng: 135.43087089612902 },
+  { id: 'anchor_07', name: '親善村上方', x: 70.3, y: 36.0, lat: 34.66509277680889, lng: 135.43065900161994 },
+  { id: 'anchor_08', name: '中央湖泊右側', x: 80.6, y: 52.5, lat: 34.66601374646661, lng: 135.43008467269595 },
+  { id: 'anchor_09', name: '水世界入口', x: 76.4, y: 68.3, lat: 34.66737523982854, lng: 135.43055662194706 },
+  { id: 'anchor_10', name: '任天堂水管', x: 78.2, y: 83.6, lat: 34.66834561217345, lng: 135.43058822582861 },
+  { id: 'anchor_11', name: '親善村鯊魚拍照點', x: 67.3, y: 71.1, lat: 34.66734389423136, lng: 135.43133703852888 },
+  { id: 'anchor_12', name: '中央公園', x: 54.7, y: 57.8, lat: 34.66633288881512, lng: 135.43224147796707 },
+  { id: 'anchor_13', name: '中央偏北', x: 52.7, y: 64.9, lat: 34.6667335823364, lng: 135.43255724236624 },
+  { id: 'anchor_14', name: '環球奇境史努比', x: 46.5, y: 77.9, lat: 34.66751084804232, lng: 135.43322936942505 },
+  { id: 'anchor_15', name: '環球奇境 Hello Kitty', x: 35.6, y: 74.1, lat: 34.66710007156539, lng: 135.434150646633 },
+  { id: 'anchor_16', name: '中央湖泊左側', x: 38.2, y: 49.2, lat: 34.66554588091339, lng: 135.43357899656752 }
 ];
+
 
 // --- 演算法：最小平方法求解仿射變換矩陣 ---
 function solveLeastSquares(anchors) {
@@ -883,7 +884,7 @@ export default function USJPlannerApp() {
             <div className="relative shadow-2xl bg-white inline-block">
                 <img ref={imgRef} src={FIXED_MAP_SRC} alt="USJ Map" className="block select-none" draggable={false}/>
                 <svg ref={svgRef} viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${isAddAnchorMode ? 'cursor-crosshair' : 'pointer-events-none'}`} onClick={handleMapClick}>
-                    {anchors.map(a => (<g key={a.id}><circle cx={a.x} cy={a.y} r="1" fill="red" /></g>))}
+                    {isAddAnchorMode && anchors.map(a => (<g key={a.id}><circle cx={a.x} cy={a.y} r="1" fill="red" /></g>))}
                     {ZONES_DATA.map(zone => (
                         <g key={zone.id} className="pointer-events-auto cursor-pointer" onClick={() => !isAddAnchorMode && alert(zone.name)}>
                             <circle cx={zone.x} cy={zone.y} r="6" fill={zone.color} opacity="0.6" />
