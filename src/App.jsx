@@ -340,6 +340,68 @@ function solveWeightedLeastSquares(points) {
     return { a, b, c, d, e, f };
 }
 
+// 4. 新增：建立局部仿射矩陣 (只取最近N點)
+function buildLocalAffineMatrix({
+  userLat,
+  userLng,
+  anchors,
+  N = 8,                 // 建議 6~10，先用 8
+  useAccuracyWeight = true,
+  useDistanceWeight = true
+}) {
+  const valid = anchors.filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lng));
+  if (valid.length < 3) return null;
+
+  // 1) 取最近 N 個錨點
+  const nearest = valid
+    .map(a => ({ a, dist: haversineMeters(userLat, userLng, a.lat, a.lng) }))
+    .sort((p, q) => p.dist - q.dist)
+    .slice(0, Math.max(3, Math.min(N, valid.length)));
+
+  // 2) 用「這批錨點的中心」當 local meters 原點（很重要：局部更穩）
+  const centerLat = nearest.reduce((s, p) => s + p.a.lat, 0) / nearest.length;
+  const centerLng = nearest.reduce((s, p) => s + p.a.lng, 0) / nearest.length;
+
+  // 3) 組 weighted LS 點
+  const points = nearest.map(({ a, dist }) => {
+    const local = llToLocalMeters(a.lat, a.lng, centerLat, centerLng);
+
+    // 如果你沒有存每個 anchor 的 accuracy，就先當 10m
+    const acc = Number.isFinite(a.acc) ? a.acc : 10;
+
+    let w = 1;
+
+    if (useAccuracyWeight) {
+      w *= 1 / Math.max(acc * acc, 1);           // 1/σ²
+    }
+    if (useDistanceWeight) {
+      w *= 1 / Math.max(dist * dist, 25);        // 避免 dist->0 爆炸；5m^2=25
+    }
+
+    return {
+      localX: local.x,
+      localY: local.y,
+      mapX: a.x,
+      mapY: a.y,
+      weight: w
+    };
+  });
+
+  const matrix = solveWeightedLeastSquares(points);
+  if (!matrix) return null;
+
+  return { matrix, centerLat, centerLng, nearest }; // nearest 留著 debug 用
+}
+
+// 5. 新增：應用仿射矩陣
+function applyAffine({ lat, lng, centerLat, centerLng, matrix }) {
+  const local = llToLocalMeters(lat, lng, centerLat, centerLng);
+  const { a, b, c, d, e, f } = matrix;
+  const x = a * local.x + b * local.y + c;
+  const y = d * local.x + e * local.y + f;
+  return { x, y };
+}
+
 
 // ... (Attractions and Facility Database - 為了精簡程式碼，此處省略既有部分，保留原有功能所需的變數)
 const ATTRACTIONS = [
@@ -493,12 +555,6 @@ const parseGpxData = (xmlData) => {
              category = 'service';
         }
 
-        // Determine Zone (Nearest Neighbor)
-        // Note: Simple Euclidean on lat/lon is "good enough" for zoning assignment in a small park
-        // We compare against Zone center points (which are in Image coordinates converted back to LatLon? No,
-        // we map the point to Image coordinates first, then compare with Zone Image Coordinates).
-        // BUT, for parsing stage, let's keep it raw. We'll assign zone after projection.
-
         parsed.push({
             id: `gpx_${i}`,
             lat,
@@ -588,9 +644,8 @@ export default function USJPlannerApp() {
   }, []);
 
   // Calculate Affine Matrix & Map POIs
-  // We extract the logic so we can run it on the static POIs too
+  // Note: static POIs still use global fit for stability
   const mapTransformLogic = useMemo(() => {
-       // 1. Prepare Local Meters for Anchors
        const centerLat = parkCenter.lat;
        const centerLng = parkCenter.lng;
        
@@ -599,9 +654,7 @@ export default function USJPlannerApp() {
            return { ...a, localX: local.x, localY: local.y, mapX: a.x, mapY: a.y, weight: 1 };
        });
 
-       // 2. Solve Matrix (Use unweighted for static global fit, or stick to weighted logic with even weights)
        const matrix = solveWeightedLeastSquares(anchorsWithLocal);
-       
        return { matrix, centerLat, centerLng };
   }, [anchors, parkCenter]);
 
@@ -613,10 +666,7 @@ export default function USJPlannerApp() {
       const { a, b, c, d, e, f } = matrix;
 
       const mapped = rawPois.map(poi => {
-          // Convert POI lat/lng to Local Meters
           const local = llToLocalMeters(poi.lat, poi.lng, centerLat, centerLng);
-          
-          // Apply Affine Transform
           const x = a * local.x + b * local.y + c;
           const y = d * local.x + e * local.y + f;
 
@@ -675,10 +725,10 @@ export default function USJPlannerApp() {
       );
   };
 
-  // --- GPS Tracking Logic (Refactored to use shared transform logic) ---
+  // --- GPS Tracking Logic (UPDATED TO LOCAL FIT) ---
   useEffect(() => {
     let watchId;
-    if (realGpsEnabled && currentView === 'map' && mapTransformLogic.matrix) {
+    if (realGpsEnabled && currentView === 'map') {
         watchId = navigator.geolocation.watchPosition(
             (position) => {
                 const lat = position.coords.latitude;
@@ -687,23 +737,24 @@ export default function USJPlannerApp() {
                 setLastGpsFix({ lat, lng, acc });
                 setGpsRaw({ lat, lng, acc });
 
-                // Use the same transform logic
-                const { matrix, centerLat, centerLng } = mapTransformLogic;
-                const { a, b, c, d, e, f } = matrix;
-                
-                const userLocal = llToLocalMeters(lat, lng, centerLat, centerLng);
-                
-                // Recalculate weights dynamically for user position if we want local accuracy?
-                // For simplicity/consistency with POIs, using the global affine matrix is safer for "seeing map".
-                // But the original code used local weighting. Let's stick to the matrix derived from anchors.
-                // If the anchors cover the map well, one matrix is enough.
-                
-                const x = a * userLocal.x + b * userLocal.y + c;
-                const y = d * userLocal.x + e * userLocal.y + f;
+                // 使用 Local Affine Matrix 邏輯
+                const localFit = buildLocalAffineMatrix({
+                    userLat: lat,
+                    userLng: lng,
+                    anchors, // 使用當前最新的錨點列表
+                    N: 8,
+                    useAccuracyWeight: true,
+                    useDistanceWeight: true
+                });
+
+                if (!localFit) return;
+
+                const { matrix, centerLat, centerLng } = localFit;
+                const projected = applyAffine({ lat, lng, centerLat, centerLng, matrix });
                 
                 // Clamp
-                const cx = Math.min(Math.max(x, 0), 100);
-                const cy = Math.min(Math.max(y, 0), 100);
+                const cx = Math.min(Math.max(projected.x, 0), 100);
+                const cy = Math.min(Math.max(projected.y, 0), 100);
                 
                 setGpsXY({ x: cx, y: cy });
             },
@@ -712,7 +763,7 @@ export default function USJPlannerApp() {
         );
     }
     return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
-  }, [realGpsEnabled, currentView, mapTransformLogic]);
+  }, [realGpsEnabled, currentView, anchors]); // Updated dependencies
 
   // Handlers
   const handleInputChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
