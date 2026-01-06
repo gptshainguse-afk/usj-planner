@@ -11,16 +11,15 @@ const FIXED_MAP_SRC = "/usj_map.jpg"; // 請確保 public 資料夾有此圖片
 const ZONES_DATA = [
   { id: 'hollywood', code: 'A', name: 'A 好萊塢區域', x: 15, y: 50, color: '#fca5a5' },
   { id: 'new_york', code: 'B', name: 'B 紐約區域', x: 30, y: 25, color: '#93c5fd' },
-  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 45.6, y: 17.2, color: '#fde047' },
+  { id: 'minion', code: 'C', name: 'C 小小兵樂園', x: 45.6, y: 8.1, color: '#fde047' },
   { id: 'san_francisco', code: 'D', name: 'D 舊金山區域', x: 49.2, y: 22.5, color: '#d1d5db' },
   { id: 'jurassic', code: 'E', name: 'E 侏儸紀公園', x: 85, y: 30, color: '#4ade80' },
   { id: 'waterworld', code: 'F', name: 'F 水世界', x: 84.7, y: 61.4, color: '#67e8f9' },
   { id: 'amity', code: 'G', name: 'G 親善村', x: 65, y: 45, color: '#fdba74' },
-  { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 81.6, y: 88.9, color: '#ef4444', textColor: 'white' },
+  { id: 'nintendo', code: 'H', name: 'H 任天堂世界', x: 81.6, y: 77.5, color: '#ef4444', textColor: 'white' },
   { id: 'harry_potter', code: 'I', name: 'I 哈利波特', x: 65.7, y: 80.9, color: '#1e293b', textColor: 'white' },
   { id: 'wonderland', code: 'J', name: 'J 環球奇境', x: 41.9, y: 67.5, color: '#f9a8d4' },
 ];
-
 const ZONES_MAP = ZONES_DATA.reduce((acc, zone) => {
     acc[zone.id] = zone;
     return acc;
@@ -46,6 +45,7 @@ const DEFAULT_ANCHORS = [
   { id: 'anchor_15', name: '環球奇境 Hello Kitty', x: 35.6, y: 74.1, lat: 34.66710007156539, lng: 135.434150646633 },
   { id: 'anchor_16', name: '中央湖泊左側', x: 38.2, y: 49.2, lat: 34.66554588091339, lng: 135.43357899656752 }
 ];
+
 
 // --- 演算法：最小平方法求解仿射變換矩陣 ---
 function solveLeastSquares(anchors) {
