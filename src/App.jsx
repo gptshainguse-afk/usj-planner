@@ -1073,7 +1073,7 @@ export default function USJPlannerApp() {
 
         const userPrompt = `請為 ${formData.date} 規劃行程。請利用 Google Search 查詢 ${contextData.officialScheduleUrl} 或相關關鍵字以獲得當日表演時刻表。若查無資料請使用備用時間並標註警語。資料：${JSON.stringify(contextData)}。`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${activeKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
