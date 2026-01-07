@@ -404,7 +404,6 @@ function applyAffine({ lat, lng, centerLat, centerLng, matrix }) {
 }
 
 
-// --- 景點與設施資料庫 (恢復完整資料以供行程規劃使用) ---
 // --- 景點與設施資料庫 (更新：明確標記 Show 與預設時間) ---
 const ATTRACTIONS = [
   { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'nintendo', type: 'ride', wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
@@ -935,17 +934,30 @@ export default function USJPlannerApp() {
   const updateExpressPassTime = (passId, attractionId, time) => setFormData(prev => ({ ...prev, expressPasses: prev.expressPasses.map(p => p.id === passId ? { ...p, times: { ...p.times, [attractionId]: time } } : p) }));
 
   const handleEditItem = (item) => { setEditingItem(item); setIsEditModalOpen(true); };
-  const handleAddItem = () => { setEditingItem(null); setIsEditModalOpen(true); };
+  
+  // 優化：支援預設時間的新增
+  const handleAddItem = (presetTime = null) => { 
+      const defaultStart = presetTime !== null ? presetTime : 540; // 預設 9:00 或上一項的結束時間
+      setEditingItem({ start: defaultStart, duration: 30, name: '', isNew: true }); 
+      setIsEditModalOpen(true); 
+  };
+
   const handleSaveItem = (newItem) => {
       let newItinerary;
-      if (editingItem) {
+      // 判斷是否為編輯現有項目 (存在於清單中且非新標記)
+      const isExisting = itinerary.includes(editingItem) && !editingItem.isNew;
+
+      if (isExisting) {
           newItinerary = itinerary.map(i => i === editingItem ? newItem : i);
       } else {
-          newItinerary = [...itinerary, newItem];
+          // 是新增項目
+          const itemToAdd = { ...newItem, id: newItem.id || Date.now() };
+          newItinerary = [...itinerary, itemToAdd];
       }
       newItinerary.sort((a, b) => a.start - b.start);
       setItinerary(newItinerary);
   };
+
   const handleDeleteItem = (itemToDelete) => {
       if(window.confirm('確定要刪除此項目嗎？')) {
           setItinerary(prev => prev.filter(i => i !== itemToDelete));
@@ -971,8 +983,6 @@ export default function USJPlannerApp() {
   };
 
   // --- AI Logic (Gemini API Integration) ---
-  // --- AI Logic (Gemini API Integration) ---
-  // --- AI Logic (Gemini API Integration) ---
   const callGeminiAPI = async () => {
       const activeKey = userApiKey || apiKey;
       if (!activeKey) { setErrorMsg("請輸入 API Key"); return; }
@@ -984,7 +994,6 @@ export default function USJPlannerApp() {
         let dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'weekday';
         if (formData.date.endsWith('12-25') || formData.date.endsWith('12-31')) dayType = 'holiday';
         
-        // 構建目前已知的一些表演時間提示 (Fallback)
         const showTimeHints = ATTRACTIONS.filter(a => a.isShow).map(a => 
             `${a.name}: 通常時刻 ${a.typicalTimes?.join(', ') || '需查詢'}`
         ).join('; ');
@@ -1040,9 +1049,13 @@ export default function USJPlannerApp() {
         const systemPrompt = `
           你是一位日本環球影城 (USJ) 的行程規劃專家。
           
+          【重要觀念導正】：
+          你**必須**使用 Google Search 工具，並將該網址作為搜尋線索（例如搜尋 "site:usj.co.jp show schedule ${formData.date}"），以獲取該頁面上的真實資訊。
+          
           【核心任務】：
-          1. **必須使用 Google Search 工具** 搜尋關鍵字 "site:usj.co.jp show schedule ${formData.date}" 或 "USJ 表演時間 ${formData.date}"，以取得當日精確的「表演時間表」。
-          2. 若 Google Search 搜尋不到特定日期的詳細時間，**允許降級**使用 'fallbackShowTimes' 中的通常時刻作為備案。
+          1. **搜尋當日表演時間**：找出 ${formData.date} 的「水世界」、「遊行」或「歡樂好聲音」的具體時刻表。
+          2. **搜尋開閉園時間**：確認當日的營業時間。
+          3. 若 Google Search 搜尋不到特定日期的詳細時間，**允許降級**使用 'fallbackShowTimes' 中的通常時刻作為備案。
           
           【資料來源標記規則 (CRITICAL)】：
           * **情況 A (成功搜尋)**：若時間是來自 Google Search 的當日真實資訊，請在 description 中註明：「依據官方時刻表」。
@@ -1341,21 +1354,34 @@ export default function USJPlannerApp() {
          <div className="px-4 relative">
              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
              {itinerary.length === 0 ? <div className="text-center py-10 text-gray-400 text-sm">尚未有行程</div> : itinerary.map((item, idx) => (
-                 <div key={idx} className="flex gap-4 mb-6 relative group" onClick={() => handleEditItem(item)}>
-                     <div className="w-12 flex-shrink-0 flex flex-col items-center z-10">
-                         <div className={`w-3 h-3 rounded-full mb-1 ${item.type === 'express' ? 'bg-yellow-400' : 'bg-blue-500'}`}></div>
-                         <span className="text-xs font-bold text-gray-500">{formatTime(item.start)}</span>
-                     </div>
-                     <div className="flex-1 p-3 rounded-xl shadow-sm border-l-4 bg-white border-blue-500 relative cursor-pointer">
-                         <div className="flex justify-between items-start">
-                             <h3 className="font-bold text-gray-800 text-sm">{item.name}</h3>
-                             <button onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
+                 <React.Fragment key={idx}>
+                     <div className="flex gap-4 mb-2 relative group" onClick={() => handleEditItem(item)}>
+                         <div className="w-12 flex-shrink-0 flex flex-col items-center z-10">
+                             <div className={`w-3 h-3 rounded-full mb-1 ${item.type === 'express' ? 'bg-yellow-400' : 'bg-blue-500'}`}></div>
+                             <span className="text-xs font-bold text-gray-500">{formatTime(item.start)}</span>
                          </div>
-                         <div className="mt-2 text-xs text-gray-500">{item.description}</div>
+                         <div className="flex-1 p-3 rounded-xl shadow-sm border-l-4 bg-white border-blue-500 relative cursor-pointer">
+                             <div className="flex justify-between items-start">
+                                 <h3 className="font-bold text-gray-800 text-sm">{item.name}</h3>
+                                 <button onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
+                             </div>
+                             <div className="mt-2 text-xs text-gray-500">{item.description}</div>
+                         </div>
                      </div>
-                 </div>
+                     {/* Insert Button */}
+                     <div className="flex items-center gap-4 mb-2 h-4 group/insert cursor-pointer" onClick={() => handleAddItem(item.end || item.start + 30)}>
+                         <div className="w-12 flex justify-center">
+                             <div className="w-0.5 h-full bg-gray-200 group-hover/insert:bg-blue-300 transition-colors relative">
+                                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-white border border-blue-300 rounded-full flex items-center justify-center opacity-0 group-hover/insert:opacity-100 transition-opacity shadow-sm">
+                                     <Plus size={10} className="text-blue-500"/>
+                                 </div>
+                             </div>
+                         </div>
+                         <div className="flex-1 h-[1px] bg-gray-100 group-hover/insert:bg-blue-100 transition-colors"></div>
+                     </div>
+                 </React.Fragment>
              ))}
-             <button onClick={handleAddItem} className="w-full py-3 mt-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold flex items-center justify-center gap-2"><Plus size={20}/> 新增自訂行程</button>
+             <button onClick={() => handleAddItem(null)} className="w-full py-3 mt-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold flex items-center justify-center gap-2 hover:bg-gray-50"><Plus size={20}/> 新增自訂行程</button>
          </div>
       </div>
   );
