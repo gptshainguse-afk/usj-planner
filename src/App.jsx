@@ -1057,7 +1057,7 @@ export default function USJPlannerApp() {
 
         const userPrompt = `請根據以下資料規劃行程：${JSON.stringify(contextData)}。JSON回應必須包含 weatherSummary 和 itinerary。`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${activeKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-preview:generateContent?key=${activeKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
