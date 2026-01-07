@@ -706,6 +706,8 @@ export default function USJPlannerApp() {
     preferenceMode: 'thrill',
     specialRequest: '',
     needsTaxRefund: false,
+    parkOpenTime: '08:00',
+    parkCloseTime: '22:00',
   };
 
   const [formData, setFormData] = useState(() => {
@@ -722,7 +724,9 @@ export default function USJPlannerApp() {
                      times: parsed.expressTimes || {} 
                  }],
                  planShopping: false,
-                 preferenceMode: 'thrill'
+                 preferenceMode: 'thrill',
+                 parkOpenTime: parsed.parkOpenTime || '08:00',
+                 parkCloseTime: parsed.parkCloseTime || '22:00'
              };
         }
         return { ...defaultFormData, ...parsed }; 
@@ -1030,7 +1034,11 @@ export default function USJPlannerApp() {
                 planShopping: formData.planShopping, 
                 preferenceMode: formData.preferenceMode, 
                 endTime: formData.endTime, 
-                special: formData.specialRequest
+                special: formData.specialRequest,
+            },
+            parkOperatingHours: {
+                open: formData.parkOpenTime,
+                close: formData.parkCloseTime
             },
             attractions: ATTRACTIONS.map(a => ({
                 id: a.id,
@@ -1054,7 +1062,7 @@ export default function USJPlannerApp() {
           
           【核心任務】：
           1. **搜尋當日表演時間**：找出 ${formData.date} 的「水世界」、「遊行」或「歡樂好聲音」的具體時刻表。
-          2. **搜尋開閉園時間**：確認當日的營業時間。
+          2. **營業時間**：請直接使用使用者提供的營業時間 (${formData.parkOpenTime} - ${formData.parkCloseTime}) 作為行程的開始與結束時間，**不需要**再搜尋營業時間。
           3. 若 Google Search 搜尋不到特定日期的詳細時間，**允許降級**使用 'fallbackShowTimes' 中的通常時刻作為備案。
           
           【資料來源標記規則 (CRITICAL)】：
@@ -1239,6 +1247,22 @@ export default function USJPlannerApp() {
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><Calendar size={18} /> 入園日期</label>
           <input type="date" value={formData.date} onChange={(e) => handleInputChange('date', e.target.value)} className="w-full p-2 border rounded-lg"/>
+        </div>
+
+        {/* Operating Hours */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><Clock size={18} /> 當日營業時間</label>
+            <div className="flex gap-4 items-center">
+                <div className="flex-1">
+                    <label className="text-xs text-gray-500 block mb-1">開園</label>
+                    <input type="time" value={formData.parkOpenTime} onChange={(e) => handleInputChange('parkOpenTime', e.target.value)} className="w-full p-2 border rounded-lg"/>
+                </div>
+                <span className="text-gray-400">~</span>
+                <div className="flex-1">
+                    <label className="text-xs text-gray-500 block mb-1">閉園</label>
+                    <input type="time" value={formData.parkCloseTime} onChange={(e) => handleInputChange('parkCloseTime', e.target.value)} className="w-full p-2 border rounded-lg"/>
+                </div>
+            </div>
         </div>
         
         {/* Preference Mode */}
