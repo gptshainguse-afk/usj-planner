@@ -405,6 +405,7 @@ function applyAffine({ lat, lng, centerLat, centerLng, matrix }) {
 
 
 // --- 景點與設施資料庫 (恢復完整資料以供行程規劃使用) ---
+// --- 景點與設施資料庫 (更新：明確標記 Show 與預設時間) ---
 const ATTRACTIONS = [
   { id: 'donkey_kong', name: '咚奇剛的瘋狂礦車', zone: 'nintendo', type: 'ride', wait: { holiday: 180, weekend: 140, weekday: 120 }, thrill: 'high' },
   { id: 'mario_kart', name: '瑪利歐賽車：庫巴的挑戰書', zone: 'nintendo', type: 'ride', wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'medium' },
@@ -418,11 +419,15 @@ const ATTRACTIONS = [
   { id: 'hollywood_dream', name: '好萊塢美夢乘車遊', zone: 'hollywood', type: 'ride', wait: { holiday: 110, weekend: 80, weekday: 45 }, thrill: 'high' },
   { id: 'hollywood_backdrop', name: '好萊塢美夢乘車遊-逆轉世界', zone: 'hollywood', type: 'ride', wait: { holiday: 110, weekend: 80, weekday: 45 }, thrill: 'high' },
   { id: 'jaws', name: '大白鯊', zone: 'amity', type: 'ride', wait: { holiday: 50, weekend: 30, weekday: 20 }, thrill: 'low' },
-  { id: 'conan_4d', name: '名偵探柯南 4-D', zone: 'hollywood', type: 'show', wait: { holiday: 30, weekend: 30, weekday: 20 }, thrill: 'low' },
+  // Shows (明確標記 isShow: true)
+  { id: 'waterworld_show', name: '水世界表演', zone: 'waterworld', type: 'show', isShow: true, wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show', typicalTimes: ["11:00", "13:15", "15:30", "17:45"] },
+  { id: 'sing_show', name: '歡樂好聲音巡迴演唱會', zone: 'hollywood', type: 'show', isShow: true, wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show', typicalTimes: ["10:30", "11:30", "13:30", "14:30", "16:30", "17:30"] },
+  { id: 'universal_monsters', name: '環球妖魔鬼怪搖滾樂', zone: 'hollywood', type: 'show', isShow: true, wait: { holiday: 30, weekend: 25, weekday: 15 }, thrill: 'show', typicalTimes: ["11:30", "13:30", "15:30", "17:00"] },
+  { id: 'george', name: '和好奇猴喬治同樂', zone: 'hollywood', type: 'show', isShow: true, wait: { holiday: 20, weekend: 15, weekday: 10 }, thrill: 'low', typicalTimes: ["10:00", "11:00", "12:00", "14:00", "15:00"] },
+  { id: 'conan_4d', name: '名偵探柯南 4-D', zone: 'hollywood', type: 'show', isShow: true, wait: { holiday: 30, weekend: 30, weekday: 20 }, thrill: 'low', typicalTimes: ["09:00", "10:00", "11:00", "12:00"] }, // 假設
   { id: 'spy_family', name: 'SPY x FAMILY XR 乘車遊', zone: 'hollywood', type: 'ride', wait: { holiday: 120, weekend: 90, weekday: 60 }, thrill: 'high_vr' },
   { id: 'space_fantasy', name: '太空幻想列車', zone: 'hollywood', type: 'ride', wait: { holiday: 60, weekend: 45, weekday: 30 }, thrill: 'medium_spin' },
-  { id: 'jujutsu_4d', name: '咒術迴戰 The Real 4-D', zone: 'hollywood', type: 'show', wait: { holiday: 50, weekend: 30, weekday: 20 }, thrill: 'low' },
-  { id: 'waterworld_show', name: '水世界表演', zone: 'waterworld', type: 'show', wait: { holiday: 20, weekend: 20, weekday: 15 }, thrill: 'show' },
+  { id: 'jujutsu_4d', name: '咒術迴戰 The Real 4-D', zone: 'hollywood', type: 'show', isShow: true, wait: { holiday: 50, weekend: 30, weekday: 20 }, thrill: 'low', typicalTimes: ["14:00", "15:00", "16:00"] } // 假設
 ];
 
 const FACILITY_DATABASE = [
@@ -966,6 +971,8 @@ export default function USJPlannerApp() {
   };
 
   // --- AI Logic (Gemini API Integration) ---
+  // --- AI Logic (Gemini API Integration) ---
+  // --- AI Logic (Gemini API Integration) ---
   const callGeminiAPI = async () => {
       const activeKey = userApiKey || apiKey;
       if (!activeKey) { setErrorMsg("請輸入 API Key"); return; }
@@ -976,9 +983,11 @@ export default function USJPlannerApp() {
         const dayOfWeek = selectedDate.getDay();
         let dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'weekday';
         if (formData.date.endsWith('12-25') || formData.date.endsWith('12-31')) dayType = 'holiday';
-        const year = selectedDate.getFullYear();
-        const month = selectedDate.getMonth() + 1; 
-        const forecastUrl = `https://usjreal.asumirai.info/monthly/usj-forecast-${year}-${month}.html`;
+        
+        // 構建目前已知的一些表演時間提示 (Fallback)
+        const showTimeHints = ATTRACTIONS.filter(a => a.isShow).map(a => 
+            `${a.name}: 通常時刻 ${a.typicalTimes?.join(', ') || '需查詢'}`
+        ).join('; ');
 
         let allExpressPassDetails = [];
         if (formData.hasExpress && formData.expressPasses.length > 0) {
@@ -1019,59 +1028,68 @@ export default function USJPlannerApp() {
                 name: a.name,
                 zone: a.zone,
                 type: a.type,
+                isShow: a.isShow || false,
                 wait: a.wait[dayType],
                 duration: a.duration,
                 thrillLevel: a.thrill 
             })),
-            facilityDatabase: FACILITY_DATABASE, 
-            dataSources: {
-                crowdForecastUrl: forecastUrl,
-                officialScheduleUrl: "https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule"
-            }
+            officialScheduleUrl: "https://www.usj.co.jp/web/zh/tw/attractions/show-and-attraction-schedule",
+            fallbackShowTimes: showTimeHints
         };
 
         const systemPrompt = `
-          你是一位環球影城 (USJ) 的行程規劃專家。
-          任務：
-          1. 搜尋 ${formData.date} 的精確天氣與營業資訊。
-          2. 根據天氣預報、人流預測與使用者偏好，產生**唯一最佳**的行程表。
+          你是一位日本環球影城 (USJ) 的行程規劃專家。
           
-          核心規劃邏輯 (${formData.preferenceMode})：
-          1. thrill: 優先飛天翼龍、好萊塢美夢。
-          2. gentle: 避開暈眩設施。
-          3. family: 優先環球奇境、小小兵。
+          【核心任務】：
+          1. **必須使用 Google Search 工具** 搜尋關鍵字 "site:usj.co.jp show schedule ${formData.date}" 或 "USJ 表演時間 ${formData.date}"，以取得當日精確的「表演時間表」。
+          2. 若 Google Search 搜尋不到特定日期的詳細時間，**允許降級**使用 'fallbackShowTimes' 中的通常時刻作為備案。
+          
+          【資料來源標記規則 (CRITICAL)】：
+          * **情況 A (成功搜尋)**：若時間是來自 Google Search 的當日真實資訊，請在 description 中註明：「依據官方時刻表」。
+          * **情況 B (使用備案)**：若搜尋失敗而使用 'fallbackShowTimes' 的預設時間，**必須**在 description 中加入此警語：「(預估時間) 請實際查詢表演時間，每日都會些許不同」。
+          
+          【規劃邏輯 - ${formData.preferenceMode} 模式】：
+          ${formData.preferenceMode === 'family' ? `
+          * **最高優先級**：安排「表演 (Shows)」。
+          * **時間對齊**：表演行程的 'start' 時間必須是搜尋到的結果或 fallback 的整點/半點時間，**嚴禁**產生像 10:43 這種隨機分鐘數。
+          * **路線優化**：在表演場次之間穿插鄰近的「環球奇境」或「小小兵樂園」設施。
+          ` : `
+          * thrill: 優先飛天翼龍、好萊塢美夢。
+          * gentle: 避開暈眩設施。
+          `}
 
-          資料檢索：
-          1. 營業時間：從 ${forecastUrl} 找出開閉園時間。
-          2. 天氣：搜尋當日天氣，雨天避開戶外。
-          3. 運休：排除休止設施。
+          【輸出規範】：
+          * 格式必須是合法的 JSON。
+          * itinerary 陣列中的每個物件必須包含: start, end, name, description, zoneId。
 
-          格式：JSON
+          格式範例：
           {
             "weatherSummary": "...",
             "itinerary": [
-                { "start": "HH:MM", "end": "HH:MM", "name": "...", "type": "ride", "zoneId": "...", "wait": 20, "duration": 5, "description": "..." }
+                { "start": "11:00", "end": "11:30", "name": "水世界", "type": "show", "zoneId": "waterworld", "description": "精彩的特技表演。(預估時間) 請實際查詢表演時間，每日都會些許不同" }
             ]
           }
         `;
 
-        const userPrompt = `請根據以下資料規劃行程：${JSON.stringify(contextData)}。JSON回應必須包含 weatherSummary 和 itinerary。`;
+        const userPrompt = `請為 ${formData.date} 規劃行程。請利用 Google Search 查詢 ${contextData.officialScheduleUrl} 或相關關鍵字以獲得當日表演時刻表。若查無資料請使用備用時間並標註警語。資料：${JSON.stringify(contextData)}。`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${activeKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: userPrompt }] }],
                 systemInstruction: { parts: [{ text: systemPrompt }] },
-                tools: [{ google_search: {} }],
+                tools: [{ google_search: {} }], 
                 generationConfig: { responseMimeType: "application/json" }
             })
         });
 
-        if (!response.ok) throw new Error("API Request Failed");
+        if (!response.ok) throw new Error("API Request Failed: " + response.statusText);
         const data = await response.json();
+        
         let generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!generatedText) throw new Error("No data generated");
+        
         generatedText = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
         const resultObj = JSON.parse(generatedText);
         
@@ -1096,7 +1114,7 @@ export default function USJPlannerApp() {
         setCurrentView('plan');
       } catch (e) { 
           console.error(e);
-          setErrorMsg(e.message);
+          setErrorMsg("規劃失敗: " + e.message);
           setIsGenerating(false); 
       } finally {
           setIsGenerating(false);
